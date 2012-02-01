@@ -1,9 +1,13 @@
 from setuptools import setup, find_packages
-import ella_comments
+
+VERSION = (1, 0, 0)
+
+__version__ = VERSION
+__versionstr__ = '.'.join(map(str, VERSION))
 
 setup(
     name='ella-comments',
-    version=ella_comments.__versionstr__,
+    version=__versionstr__,
     description='Comments plugin for Ella CMS',
     long_description='\n'.join((
         'Comments plugin wrapper over the threadedcomments app',
