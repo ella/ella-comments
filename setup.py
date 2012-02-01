@@ -16,6 +16,7 @@ setup(
 
     packages=find_packages(
         where='.',
+        exclude=('doc', 'test_ella_comments')
     ),
 
     include_package_data=True,
