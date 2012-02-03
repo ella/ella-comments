@@ -5,12 +5,15 @@ simple shortcut for running nosetests via python
 replacement for *.bat or *.sh wrappers
 '''
 
+import os
 import sys
 from os.path import abspath, dirname
 
 import nose
 
 def run_all(argv=None):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'test_ella_comments.settings'
+
     if argv is None:
         argv = [
             'nosetests',
