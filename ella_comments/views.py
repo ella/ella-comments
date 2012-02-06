@@ -15,6 +15,8 @@ from django.core.paginator import Paginator
 from django.conf import settings
 from django.views.decorators.csrf import csrf_protect
 
+from threadedcomments.models import PATH_DIGITS
+
 from ella.core.views import get_templates_from_publishable
 
 from ella_comments.models import CommentOptionsObject, BannedIP
@@ -139,7 +141,10 @@ def list_comments(request, context):
     if 'ids' in request.GET:
         ids = request.GET.getlist('ids')
         # branch is everything whose tree_path begins with the same prefix
-        qs = qs.filter(reduce(operator.or_, map(lambda x: Q(tree_path__startswith=x.zfill(10)), ids)))
+        qs = qs.filter(reduce(
+                    operator.or_,
+                    map(lambda x: Q(tree_path__startswith=x.zfill(PATH_DIGITS)), ids)
+            ))
 
     # pagination
     if 'p' in request.GET and request.GET['p'].isdigit():
