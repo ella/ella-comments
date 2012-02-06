@@ -127,6 +127,15 @@ def post_comment(request, context, parent_id=None):
 
     return HttpResponseRedirect(next)
 
+def group_threads(items, prop=lambda x: x.tree_path[:PATH_DIGITS]):
+    groups = []
+    prev = None
+    for i in items:
+        if prop(i) != prev:
+            prev = prop(i)
+            groups.append([])
+        groups[-1].append(i)
+    return groups
 
 def list_comments(request, context):
     # basic queryset
@@ -152,8 +161,14 @@ def list_comments(request, context):
     else:
         page_no = 1
 
+    items = qs
+    if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
+        items = group_threads(qs)
+    if getattr(settings, 'COMMENTS_REVERSED', False):
+        items = reversed(items)
+
     paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
-    paginator = Paginator(qs, paginate_by)
+    paginator = Paginator(items, paginate_by)
 
     if page_no > paginator.num_pages or page_no < 1:
         raise Http404()

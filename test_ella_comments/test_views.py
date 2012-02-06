@@ -14,6 +14,7 @@ from test_ella.test_core import create_basic_categories, create_and_place_a_publ
 # register must be imported for custom urls
 from ella_comments import register
 from ella_comments.models import CommentOptionsObject, BannedIP
+from ella_comments import views
 
 from test_ella_comments.helpers import create_comment
 
@@ -46,6 +47,22 @@ class CommentViewTestCase(TestCase):
     def tearDown(self):
         super(CommentViewTestCase, self).tearDown()
         template_loader.templates = {}
+
+class TestCommentViewHelpers(TestCase):
+    def test_group_threads(self):
+        data = [
+                u'a', u'a/i', u'a/i/j', u'a/k',
+                u'b',
+                u'c', u'c/d', u'c/d/f', u'c/d/g', u'c/e',
+                u'h',
+            ]
+        expected = [
+                [u'a', u'a/i', u'a/i/j', u'a/k'],
+                [u'b'],
+                [u'c', u'c/d', u'c/d/f', u'c/d/g', u'c/e'],
+                [u'h'],
+            ]
+        tools.assert_equals(expected, views.group_threads(data, lambda x: x[:1]))
 
 class TestCommentViewPagination(CommentViewTestCase):
     def setUp(self):
