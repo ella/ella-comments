@@ -18,6 +18,8 @@ class AuthorizedCommentForm(ThreadedCommentForm):
     def get_comment_create_data(self):
         "so remove it from comment create date"
         return dict(
+            parent_id    = self.cleaned_data['parent'],
+            title        = self.cleaned_data['title'],
             content_type = ContentType.objects.get_for_model(self.target_object),
             object_pk    = force_unicode(self.target_object._get_pk_val()),
             comment      = self.cleaned_data["comment"],
