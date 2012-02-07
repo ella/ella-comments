@@ -10,6 +10,7 @@ from threadedcomments.templatetags import threadedcomments_tags as tt
 from ella.core.models import Publishable
 
 from ella_comments.models import CommentOptionsObject
+from ella_comments import views
 
 register = template.Library()
 
@@ -161,6 +162,10 @@ def get_comment_options(parser, token):
     return CommentOptionsNode.handle_token(parser, token)
 
 
+def group_threads(comments):
+    return views.group_threads(comments)
+
+register.filter(group_threads)
 register.filter(annotate_tree)
 register.filter(fill_tree)
 register.tag(get_comment_list)
