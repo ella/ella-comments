@@ -173,11 +173,11 @@ def list_comments(request, context):
     else:
         page_no = 1
 
-    items = qs
+    items = list(qs)
     if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
         items = group_threads(qs)
     if getattr(settings, 'COMMENTS_REVERSED', False):
-        items = reversed(items)
+        items = list(reversed(items))
 
     paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
     paginator = Paginator(items, paginate_by)
