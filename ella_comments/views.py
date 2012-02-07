@@ -125,6 +125,18 @@ def post_comment(request, context, parent_id=None):
         request=request
     )
 
+    if next == 'none':
+        context.update({
+                "comment" : comment,
+                'parent': parent,
+                "next": next,
+            })
+        return render_to_response(
+            get_templates_from_publishable('comment_detail.html', context['object']),
+            context,
+            RequestContext(request)
+        )
+
     return HttpResponseRedirect(next)
 
 def group_threads(items, prop=lambda x: x.tree_path[:PATH_DIGITS]):
