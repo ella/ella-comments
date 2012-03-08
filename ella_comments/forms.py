@@ -15,6 +15,24 @@ class AuthorizedCommentForm(ThreadedCommentForm):
         self.fields.pop('email')
         self.fields.pop('url')
 
+    def check_for_duplicate_comment(self, new):
+        """
+        copy paste of check_for_duplicate_comment from ``django.contrib.comments.forms``
+        so we can let the decision of which db to use on router
+        """
+        possible_duplicates = self.get_comment_model()._default_manager.filter(
+            content_type = new.content_type,
+            object_pk = new.object_pk,
+            user_name = new.user_name,
+            user_email = new.user_email,
+            user_url = new.user_url,
+        )
+        for old in possible_duplicates:
+            if old.submit_date.date() == new.submit_date.date() and old.comment == new.comment:
+                return old
+
+        return new
+
     def get_comment_create_data(self):
         "so remove it from comment create date"
         return dict(
