@@ -61,9 +61,12 @@ class RenderCommentFormNode(EllaMixin, tt.RenderCommentFormNode): pass
 class CommentCountNode(EllaMixin, dt.CommentCountNode): pass
 class CommentListNode(EllaMixin, tt.CommentListNode):
     def get_context_value_from_queryset(self, context, qs):
-        items = list(qs)
         if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
             items = group_threads(qs)
+        elif getattr(settings, 'COMMENTS_FLAT', False):
+            items = list(qs.order_by('-submit_date'))
+        else:
+            items = list(qs)
         paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
         items = items[-paginate_by:]
         if getattr(settings, 'COMMENTS_REVERSED', False):

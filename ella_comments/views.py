@@ -173,9 +173,12 @@ def list_comments(request, context):
     else:
         page_no = 1
 
-    items = list(qs)
     if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
         items = group_threads(qs)
+    elif getattr(settings, 'COMMENTS_FLAT', False):
+        items = list(qs.order_by('-submit_date'))
+    else:
+        items = list(qs)
     if getattr(settings, 'COMMENTS_REVERSED', False):
         items = list(reversed(items))
 
