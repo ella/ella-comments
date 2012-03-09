@@ -19,7 +19,7 @@ from threadedcomments.models import PATH_DIGITS
 
 from ella.core.views import get_templates_from_publishable
 
-from ella_comments.models import CommentOptionsObject, BannedIP
+from ella_comments.models import CommentOptionsObject
 
 @csrf_protect
 @transaction.commit_on_success

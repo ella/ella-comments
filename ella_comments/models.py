@@ -42,16 +42,3 @@ class CommentOptionsObject(models.Model):
     def __unicode__(self):
         return u"%s: %s" % (_("Comment Options"), self.target)
 
-class BannedIP(models.Model):
-    """
-    """
-    created = models.DateTimeField(_('Created'), auto_now_add=True)
-    ip_address = models.IPAddressField(_('IP Address'), unique=True)
-    reason = models.CharField(_('Reason'), max_length=255, blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Banned IP')
-        verbose_name_plural = _('Banned IPs')
-
-    def __unicode__(self):
-        return self.ip_address

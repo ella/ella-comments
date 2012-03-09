@@ -7,7 +7,7 @@ try:
     from threadedcomments.models import ThreadedComment
     from threadedcomments.admin import ThreadedCommentsAdmin
 
-    from ella_comments.models import CommentOptionsObject, BannedIP
+    from ella_comments.models import CommentOptionsObject
 
     class CommentOptionsGenericInline(newman.GenericStackedInline):
         ct_field = "target_ct"
@@ -42,16 +42,11 @@ try:
             self.message_user(request, msg % {'count': n_comments})
         remove_comments.short_description = _('Remove selected comments')
 
-    class BannedIPNewmanAdmin(newman.NewmanModelAdmin):
-        list_display = ('__unicode__', 'created', 'reason')
-        list_filter = ('created',)
-
     MODELS_WITH_COMMENTS = getattr(settings, 'MODELS_WITH_COMMENTS',
         ('articles.article', 'galleries.gallery', 'interviews.interview',))
 
     newman.site.register(ThreadedComment, ThreadedCommentsNewmanAdmin)
     newman.site.append_inline(MODELS_WITH_COMMENTS, CommentOptionsGenericInline)
-    newman.site.register(BannedIP, BannedIPNewmanAdmin)
 
     # threadedcomments translations for newman
     app, n, vn = _('Threadedcomments'), _('Threaded comment'), _('Threaded comments')

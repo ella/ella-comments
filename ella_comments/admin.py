@@ -10,7 +10,7 @@ from django.utils.encoding import force_unicode
 from threadedcomments.admin import ThreadedCommentsAdmin
 from threadedcomments.models import ThreadedComment
 
-from ella_comments.models import CommentOptionsObject, BannedIP
+from ella_comments.models import CommentOptionsObject
 
 class CommentOptionsGenericInline(GenericInlineModelAdmin):
     model = CommentOptionsObject
@@ -62,9 +62,3 @@ class CommentsAdmin(ThreadedCommentsAdmin):
         }
         return render_to_response("admin/comments/comment/multiple_delete_confirmation.html", context)
 
-class BannedIPAdmin(admin.ModelAdmin):
-    date_hierarchy = 'created'
-    list_display = ('__unicode__', 'created', 'reason')
-    list_filter = ('created',)
-
-admin.site.register(BannedIP, BannedIPAdmin)
