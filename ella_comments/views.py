@@ -20,7 +20,15 @@ from ella.core.views import get_templates_from_publishable
 
 from ella_comments.models import CommentOptionsObject
 
-class PostComment(object):
+class CommentView(object):
+    def get_template(self, name, context):
+        return get_templates_from_publishable(name, context['object'])
+
+class PostComment(CommentView):
+    form_template = 'comment_form.html'
+    preview_template = 'comment_preview.html'
+    detail_template = 'comment_detail.html'
+
     @transaction.commit_on_success
     def __call__(self, request, context, parent_id=None):
         'Mostly copy-pasted from django.contrib.comments.views.comments'
@@ -46,7 +54,7 @@ class PostComment(object):
                     'form': form,
                 })
             return render_to_response(
-                get_templates_from_publishable('comment_form.html', context['object']),
+                self.get_template(self.form_template, context),
                 context,
                 RequestContext(request)
             )
@@ -83,7 +91,7 @@ class PostComment(object):
                     "next": next,
                 })
             return render_to_response(
-                get_templates_from_publishable(form.errors and 'comment_form.html' or 'comment_preview.html', context['object']),
+                self.get_template(form.errors and self.form_template or self.preview_template, context),
                 context,
                 RequestContext(request)
             )
@@ -124,7 +132,7 @@ class PostComment(object):
                     "next": next,
                 })
             return render_to_response(
-                get_templates_from_publishable('comment_detail.html', context['object']),
+                self.get_template(self.detail_template, context),
                 context,
                 RequestContext(request)
             )
@@ -141,7 +149,9 @@ def group_threads(items, prop=lambda x: x.tree_path[:PATH_DIGITS]):
         groups[-1].append(i)
     return groups
 
-class ListComments(object):
+class ListComments(CommentView):
+    list_template = 'comment_list.html'
+
     def __call__(self, request, context):
         # basic queryset
         qs = comments.get_model().objects.for_model(context['object']).order_by('tree_path')
@@ -190,7 +200,7 @@ class ListComments(object):
         })
 
         return render_to_response(
-            get_templates_from_publishable('comment_list.html', context['object']),
+            self.get_template(self.list_template, context),
             context,
             RequestContext(request)
         )
