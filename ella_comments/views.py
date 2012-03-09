@@ -34,13 +34,7 @@ def post_comment(request, context, parent_id=None):
     if parent_id:
         parent = get_object_or_404(comments.get_model(), pk=parent_id)
 
-    ip_address = request.META.get('REMOTE_ADDR', None)
-    try:
-        ip_ban = BannedIP.objects.get(ip_address=ip_address)
-    except BannedIP.DoesNotExist:
-        ip_ban = None
-
-    if request.method != 'POST' or ip_ban:
+    if request.method != 'POST':
         initial = {}
         if parent:
             if parent.title.startswith('Re:'):
@@ -51,7 +45,6 @@ def post_comment(request, context, parent_id=None):
         context.update({
                 'parent': parent,
                 'form': form,
-                'ip_ban': ip_ban,
             })
         return render_to_response(
             get_templates_from_publishable('comment_form.html', context['object']),

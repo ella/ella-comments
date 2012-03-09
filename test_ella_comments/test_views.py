@@ -13,7 +13,7 @@ from test_ella.test_core import create_basic_categories, create_and_place_a_publ
 
 # register must be imported for custom urls
 from ella_comments import register
-from ella_comments.models import CommentOptionsObject, BannedIP
+from ella_comments.models import CommentOptionsObject
 from ella_comments import views
 
 from test_ella_comments.helpers import create_comment
@@ -102,27 +102,6 @@ class TestCommentViewPagination(CommentViewTestCase):
         tools.assert_equals(200, response.status_code)
         tools.assert_equals([a, ab, ac], list(response.context['comment_list']))
 
-
-class TestBannedIP(CommentViewTestCase):
-    def setUp(self):
-        super(TestBannedIP, self).setUp()
-        self.ip_ban = BannedIP.objects.create(ip_address='127.0.0.1', reason='Test')
-
-    def test_post_from_banned_ip_does_not_work(self):
-        template_loader.templates['page/comment_form.html'] = ''
-        form = comments.get_form()(target_object=self.publishable)
-        response = self.client.post(self.get_url('new'), self.get_form_data(form))
-        tools.assert_equals(200, response.status_code)
-        tools.assert_equals(0, comments.get_model().objects.count())
-        tools.assert_true('ip_ban' in response.context)
-        tools.assert_equals(self.ip_ban, response.context['ip_ban'])
-
-    def test_get_passes_ip_ban_to_template(self):
-        template_loader.templates['page/comment_form.html'] = ''
-        response = self.client.get(self.get_url('new'))
-        tools.assert_equals(200, response.status_code)
-        tools.assert_true('ip_ban' in response.context)
-        tools.assert_equals(self.ip_ban, response.context['ip_ban'])
 
 
 class TestCommentModeration(CommentViewTestCase):
