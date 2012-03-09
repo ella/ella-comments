@@ -7,12 +7,12 @@ class Migration:
 
     def forwards(self, orm):
         # Deleting model 'BannedIP'
-        db.delete_table('ellacomments_bannedip')
+        db.delete_table('ella_comments_bannedip')
 
 
     def backwards(self, orm):
         # Adding model 'BannedIP'
-        db.create_table('ellacomments_bannedip', (
+        db.create_table('ella_comments_bannedip', (
             ('id', models.AutoField(primary_key=True)),
             ('created', models.DateTimeField(_('Created'), auto_now_add=True)),
             ('ip_address', models.IPAddressField(_('IP Address'), unique=True)),
