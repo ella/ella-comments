@@ -13,7 +13,6 @@ from django.db.models import Q
 from django.db import transaction
 from django.core.paginator import Paginator
 from django.conf import settings
-from django.views.decorators.csrf import csrf_protect
 
 from threadedcomments.models import PATH_DIGITS
 
@@ -21,7 +20,6 @@ from ella.core.views import get_templates_from_publishable
 
 from ella_comments.models import CommentOptionsObject
 
-@csrf_protect
 @transaction.commit_on_success
 def post_comment(request, context, parent_id=None):
     'Mostly copy-pasted from django.contrib.comments.views.comments'
