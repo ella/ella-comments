@@ -153,6 +153,10 @@ class ListComments(CommentView):
     list_template = 'comment_list.html'
 
     def __call__(self, request, context):
+        # async check
+        if request.is_ajax():
+            self.list_template = 'comment_list_async.html'
+
         # basic queryset
         qs = comments.get_model().objects.for_model(context['object']).order_by('tree_path')
 
