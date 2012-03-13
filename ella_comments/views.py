@@ -32,6 +32,11 @@ class PostComment(CommentView):
     @transaction.commit_on_success
     def __call__(self, request, context, parent_id=None):
         'Mostly copy-pasted from django.contrib.comments.views.comments'
+        if request.is_ajax():
+            self.form_template = 'comment_form_async.html'
+            self.preview_template = 'comment_preview_async.html'
+            self.detail_template = 'comment_detail_async.html'
+
         opts = CommentOptionsObject.objects.get_for_object(context['object'])
         if opts.blocked:
             raise Http404('Comments are blocked for this object.')
