@@ -68,9 +68,9 @@ class CommentListNode(EllaMixin, tt.CommentListNode):
         else:
             items = list(qs)
         paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
-        items = items[-paginate_by:]
         if getattr(settings, 'COMMENTS_REVERSED', False):
             items = list(reversed(items))
+        items = items[:paginate_by]
         return items
 
 # copied tag registrations from threadedcomments
