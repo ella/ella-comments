@@ -171,6 +171,20 @@ class ListComments(CommentView):
             list_template = 'comment_list_async.html',
         )
 
+    def get_display_params(self, request):
+        "pagination and other get params TODO: use Form for this"
+        page_no = 1
+        if 'p' in request.GET and request.GET['p'].isdigit():
+            page_no = int(request.GET['p'])
+        paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
+        if 'pby' in request.GET and request.GET['pby'].isdigit():
+            if 0 < int(request.GET['pby']) <= 100:
+                paginate_by = int(request.GET['pby'])
+        reverse = False
+        if 'reverse' in request.GET and request.GET['reverse'].isdigit():
+            reverse = bool(int(request.GET['reverse']))
+        return page_no, paginate_by, reverse
+
     def __call__(self, request, context):
         templates = self.normal_templates
         if request.is_ajax():
@@ -194,18 +208,7 @@ class ListComments(CommentView):
                         map(lambda x: Q(tree_path__startswith=x.zfill(PATH_DIGITS)), ids)
                 ))
 
-        # pagination and other get params TODO: use Form for this
-        if 'p' in request.GET and request.GET['p'].isdigit():
-            page_no = int(request.GET['p'])
-        else:
-            page_no = 1
-        paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
-        if 'pby' in request.GET and request.GET['pby'].isdigit():
-            if 0 < int(request.GET['pby']) <= 100:
-                paginate_by = int(request.GET['pby'])
-        reverse = False
-        if 'reverse' in request.GET and request.GET['reverse'].isdigit():
-            reverse = bool(int(request.GET['reverse']))
+        page_no, paginate_by, reverse = self.get_display_params(request)
 
         if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
             items = group_threads(qs)
