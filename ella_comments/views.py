@@ -194,11 +194,18 @@ class ListComments(CommentView):
                         map(lambda x: Q(tree_path__startswith=x.zfill(PATH_DIGITS)), ids)
                 ))
 
-        # pagination
+        # pagination and other get params TODO: use Form for this
         if 'p' in request.GET and request.GET['p'].isdigit():
             page_no = int(request.GET['p'])
         else:
             page_no = 1
+        paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
+        if 'pby' in request.GET and request.GET['pby'].isdigit():
+            if 0 < int(request.GET['pby']) <= 100:
+                paginate_by = int(request.GET['pby'])
+        reverse = False
+        if 'reverse' in request.GET and request.GET['reverse'].isdigit():
+            reverse = bool(int(request.GET['reverse']))
 
         if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
             items = group_threads(qs)
@@ -206,10 +213,9 @@ class ListComments(CommentView):
             items = list(qs.order_by('-submit_date'))
         else:
             items = list(qs)
-        if getattr(settings, 'COMMENTS_REVERSED', False):
+        if reverse:
             items = list(reversed(items))
 
-        paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
         paginator = Paginator(items, paginate_by)
 
         if page_no > paginator.num_pages or page_no < 1:
