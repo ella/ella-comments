@@ -25,17 +25,24 @@ class CommentView(object):
         return get_templates_from_publishable(name, context['object'])
 
 class PostComment(CommentView):
-    form_template = 'comment_form.html'
-    preview_template = 'comment_preview.html'
-    detail_template = 'comment_detail.html'
+    normal_templates = dict(
+            form_template = 'comment_form.html',
+            preview_template = 'comment_preview.html',
+            detail_template = 'comment_detail.html',
+        )
+    async_templates = dict(
+            form_template = 'comment_form_async.html',
+            preview_template = 'comment_preview_async.html',
+            detail_template = 'comment_detail_async.html',
+        )
 
     @transaction.commit_on_success
     def __call__(self, request, context, parent_id=None):
         'Mostly copy-pasted from django.contrib.comments.views.comments'
+        templates = self.normal_templates
         if request.is_ajax():
-            self.form_template = 'comment_form_async.html'
-            self.preview_template = 'comment_preview_async.html'
-            self.detail_template = 'comment_detail_async.html'
+            # async check
+            templates = self.async_templates
 
         opts = CommentOptionsObject.objects.get_for_object(context['object'])
         if opts.blocked:
@@ -59,7 +66,7 @@ class PostComment(CommentView):
                     'form': form,
                 })
             return render_to_response(
-                self.get_template(self.form_template, context),
+                self.get_template(templates['form_template'], context),
                 context,
                 RequestContext(request)
             )
@@ -96,7 +103,7 @@ class PostComment(CommentView):
                     "next": next,
                 })
             return render_to_response(
-                self.get_template(form.errors and self.form_template or self.preview_template, context),
+                self.get_template(form.errors and templates['form_template'] or templates['preview_template'], context),
                 context,
                 RequestContext(request)
             )
@@ -137,7 +144,7 @@ class PostComment(CommentView):
                     "next": next,
                 })
             return render_to_response(
-                self.get_template(self.detail_template, context),
+                self.get_template(templates['detail_template'], context),
                 context,
                 RequestContext(request)
             )
@@ -155,12 +162,18 @@ def group_threads(items, prop=lambda x: x.tree_path[:PATH_DIGITS]):
     return groups
 
 class ListComments(CommentView):
-    list_template = 'comment_list.html'
+    normal_templates = dict(
+            list_template = 'comment_list.html',
+        )
+    async_templates = dict(
+            list_template = 'comment_list_async.html',
+        )
 
     def __call__(self, request, context):
-        # async check
+        templates = self.normal_templates
         if request.is_ajax():
-            self.list_template = 'comment_list_async.html'
+            # async check
+            templates = self.async_templates
 
         # basic queryset
         qs = comments.get_model().objects.for_model(context['object']).order_by('tree_path')
@@ -209,7 +222,7 @@ class ListComments(CommentView):
         })
 
         return render_to_response(
-            self.get_template(self.list_template, context),
+            self.get_template(templates['list_template'], context),
             context,
             RequestContext(request)
         )
