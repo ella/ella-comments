@@ -35,6 +35,9 @@ class PostComment(CommentView):
             detail_template = 'comment_detail_async.html',
         )
 
+    def get_default_return_url(self, context):
+        return resolver.reverse(context['object'], 'comments-list')
+
     @transaction.commit_on_success
     def __call__(self, request, context, parent_id=None):
         'Mostly copy-pasted from django.contrib.comments.views.comments'
@@ -92,7 +95,7 @@ class PostComment(CommentView):
         preview = "preview" in data
 
         # Check to see if the POST data overrides the view's next argument.
-        next = data.get("next", resolver.reverse(context['object'], 'comments-list'))
+        next = data.get("next", self.get_default_return_url(context))
 
         # If there are errors or if we requested a preview show the comment
         if form.errors or preview:
