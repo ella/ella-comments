@@ -4,8 +4,6 @@ from django.contrib import comments
 from django.contrib.comments import signals
 from django.contrib.comments.views.comments import CommentPostBadRequest
 from django.utils.html import escape
-from django.utils.translation import ugettext as _
-from django.template.defaultfilters import slugify
 from django.template import RequestContext
 from django.shortcuts import get_object_or_404, render_to_response
 from django.http import HttpResponseRedirect, Http404
@@ -17,6 +15,7 @@ from django.conf import settings
 from threadedcomments.models import PATH_DIGITS
 
 from ella.core.views import get_templates_from_publishable
+from ella.core.custom_urls import resolver
 
 from ella_comments.models import CommentOptionsObject
 
@@ -93,7 +92,7 @@ class PostComment(CommentView):
         preview = "preview" in data
 
         # Check to see if the POST data overrides the view's next argument.
-        next = data.get("next", "%s%s/" % (context['object'].get_absolute_url(), slugify(_('comments'))))
+        next = data.get("next", resolver.reverse(context['object'], 'comments-list'))
 
         # If there are errors or if we requested a preview show the comment
         if form.errors or preview:
