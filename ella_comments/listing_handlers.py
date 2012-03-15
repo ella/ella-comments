@@ -41,6 +41,8 @@ def publishable_published(publishable, **kwargs):
 
     pipe = client.pipeline()
 
+    if cnt is None:
+        cnt = 0
     MostCommentedListingHandler.add_publishable(publishable.category, publishable, cnt, pipe=pipe, commit=False)
     if lastcom:
         LastCommentedListingHandler.add_publishable(publishable.category, publishable, lastcom['submit_date'], pipe=pipe, commit=False)
