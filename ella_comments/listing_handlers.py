@@ -11,12 +11,7 @@ log = logging.getLogger('ella_comments')
 COMCOUNT_KEY = 'comcount:pub:%d:%s'
 LASTCOM_KEY = 'lastcom:pub:%d:%s'
 
-class CommentListingHandler(RedisListingHandler):
-    def _get_listing(self, publishable, score):
-        Listing = get_model('core', 'listing')
-        return Listing(publishable=publishable, publish_from=publishable.publish_from)
-
-class MostCommentedListingHandler(CommentListingHandler):
+class MostCommentedListingHandler(RedisListingHandler):
     PREFIX = 'comcount'
     def _get_score_limits(self):
         max_score = None
@@ -27,7 +22,11 @@ class MostCommentedListingHandler(CommentListingHandler):
             raise NotSupported()
         return min_score, max_score
 
-class LastCommentedListingHandler(CommentListingHandler):
+    def _get_listing(self, publishable, score):
+        Listing = get_model('core', 'listing')
+        return Listing(publishable=publishable, publish_from=publishable.publish_from)
+
+class LastCommentedListingHandler(RedisListingHandler):
     PREFIX = 'lastcom'
 
 def publishable_unpublished(publishable, **kwargs):
