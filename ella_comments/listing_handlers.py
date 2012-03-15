@@ -58,7 +58,7 @@ def comment_posted(comment, **kwargs):
     pipe.hmset(last_keu, {
         'submit_date': repr(time.mktime(comment.submit_date.timetuple())),
         'user_id': comment.user_id or '',
-        'username': comment.user_name,
+        'username': comment.user.username if comment.user_id else comment.user_name,
     })
     pipe.execute()
 
