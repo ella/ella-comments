@@ -17,3 +17,5 @@ def get_form():
         return AuthorizedCommentForm
     return ThreadedCommentForm
 
+# register signals if appropriate
+from ella_comments import listing_handler
