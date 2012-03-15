@@ -18,4 +18,4 @@ def get_form():
     return ThreadedCommentForm
 
 # register signals if appropriate
-from ella_comments import listing_handler
+from ella_comments import listing_handlers
