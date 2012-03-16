@@ -63,7 +63,7 @@ def comment_posted(comment, **kwargs):
     pipe.execute()
 
     obj = comment.content_object
-    if isinstance(obj, Publishable):
+    if isinstance(obj, Publishable) and obj.is_published():
         publishable_published(obj, last_comment=comment)
 
 def connect_signals():
