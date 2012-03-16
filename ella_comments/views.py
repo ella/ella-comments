@@ -11,6 +11,7 @@ from django.db.models import Q
 from django.db import transaction
 from django.core.paginator import Paginator
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 
 from threadedcomments.models import PATH_DIGITS
 
@@ -239,6 +240,8 @@ class ListComments(CommentView):
             RequestContext(request)
         )
 
-post_comment = PostComment()
+@login_required
+def post_comment(request, context):
+    return PostComment()(request, context)
 list_comments = ListComments()
 
