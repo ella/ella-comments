@@ -46,6 +46,9 @@ class PostComment(CommentView):
         if request.is_ajax():
             # async check
             templates = self.async_templates
+        if getattr(settings, 'COMMENTS_AUTHORIZED_ONLY', False):
+            if not request.user.is_authenticated():
+                raise Http404('Comments only for logged in users.')
 
         opts = CommentOptionsObject.objects.get_for_object(context['object'])
         if opts.blocked:
