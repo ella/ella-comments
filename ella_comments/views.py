@@ -243,8 +243,11 @@ class ListComments(CommentView):
             RequestContext(request)
         )
 
-@login_required
+
 def post_comment(request, context):
     return PostComment()(request, context)
+if getattr(settings, 'COMMENTS_AUTHORIZED_ONLY', False):
+    post_comment = login_required(post_comment)
+
 list_comments = ListComments()
 
