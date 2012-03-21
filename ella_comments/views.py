@@ -24,6 +24,46 @@ class CommentView(object):
     def get_template(self, name, context):
         return get_templates_from_publishable(name, context['object'])
 
+class UpdateComment(CommentView):
+    normal_templates = dict(
+            update_template = 'comment_update.html',
+        )
+    async_templates = dict(
+            update_template = 'comment_update_async.html',
+        )
+
+    def get_comment_for_user(self, obj, user, comment_id):
+        return comments.get_model().objects.for_model(obj).get(pk=comment_id)
+
+    def get_update_comment_form(self, comment):
+        #form = comments.get_form()(context['object'], parent=parent_id, initial=initial)
+        return
+
+    @transaction.commit_on_success
+    def __call__(self, request, context, comment_id):
+        if getattr(settings, 'COMMENTS_ALLOW_UPDATE', False):
+            return Http404()
+        if not request.user.is_authenticated():
+            raise Http404()
+
+        try:
+            previous = self.get_comment_for_user(context['object'], request.user, comment_id)
+        except comments.get_model().DoesNotExist:
+            raise Http404()
+
+        form = self.get_update_comment_form(previous)
+
+        if form.is_valid():
+            new_comment = form.get_comment_object()
+            # TODO: fire up signals
+            new_comment.save()
+
+        return render_to_response(
+            self.get_template(templates['comment_update'], context),
+            context,
+            RequestContext(request)
+        )
+
 class PostComment(CommentView):
     normal_templates = dict(
             form_template = 'comment_form.html',
@@ -250,4 +290,5 @@ if getattr(settings, 'COMMENTS_AUTHORIZED_ONLY', False):
     post_comment = login_required(post_comment)
 
 list_comments = ListComments()
+update_comment = UpdateComment()
 

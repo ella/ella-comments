@@ -6,6 +6,7 @@ from nose import tools
 from django.contrib import comments
 from django.utils.translation import ugettext as _
 from django.template.defaultfilters import slugify
+from django.contrib.auth.models import User
 from django.conf import settings
 
 from test_ella import template_loader
@@ -220,4 +221,11 @@ class TestCommentViews(CommentViewTestCase):
         response = self.client.get(self.get_url() + '?ids=%s&ids=%s' % (a.pk, d.pk))
         tools.assert_equals(200, response.status_code)
         tools.assert_equals([a, ab, ac, d, de, def_], list(response.context['comment_list']))
+
+class TestUpdateComment(CommentViewTestCase):
+    def test_get_comment_for_user(self):
+        user = User.objects.create(username='boy')
+        first = create_comment(self.publishable, self.publishable.content_type, comment='first', user=user)
+        tools.assert_equals(first, views.update_comment.get_comment_for_user(self.publishable, user, first.pk))
+        tools.assert_raises(comments.get_model().DoesNotExist, lambda: views.update_comment.get_comment_for_user(self.publishable, user, 1024))
 
