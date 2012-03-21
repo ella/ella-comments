@@ -32,7 +32,10 @@ class LastCommentedListingHandler(RedisListingHandler):
 
 def comment_pre_save(instance, **kwargs):
     if instance.pk:
-        old_instance = instance.__class__._default_manager.get(pk=instance.pk)
+        try:
+            old_instance = instance.__class__._default_manager.get(pk=instance.pk)
+        except instance.__class__.DoesNotExist:
+            return
         instance.__pub_info = {
             'is_public': old_instance.is_public,
             'is_removed': old_instance.is_removed,
