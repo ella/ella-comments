@@ -20,6 +20,7 @@ from ella.core.custom_urls import resolver
 
 from ella_comments.models import CommentOptionsObject
 
+
 class CommentView(object):
     def get_template(self, name, context):
         return get_templates_from_publishable(name, context['object'])
@@ -33,36 +34,65 @@ class UpdateComment(CommentView):
         )
 
     def get_comment_for_user(self, obj, user, comment_id):
-        return comments.get_model().objects.for_model(obj).get(pk=comment_id)
+        return comments.get_model().objects.for_model(obj).filter(user=user).get(pk=comment_id)
 
-    def get_update_comment_form(self, comment):
-        #form = comments.get_form()(context['object'], parent=parent_id, initial=initial)
-        return
+    def get_update_comment_form(self, obj, comment, data):
+        initial = {'comment': comment.comment}
+        form = comments.get_form()(obj, parent=comment.parent, initial=initial, data=data)
+        return form
+
+    def get_default_return_url(self, context):
+        return resolver.reverse(context['object'], 'comments-list')
 
     @transaction.commit_on_success
     def __call__(self, request, context, comment_id):
-        if getattr(settings, 'COMMENTS_ALLOW_UPDATE', False):
-            return Http404()
+        if not getattr(settings, 'COMMENTS_ALLOW_UPDATE', False):
+            raise Http404("update not allowed")
         if not request.user.is_authenticated():
-            raise Http404()
-
+            raise Http404("you are not logged in")
         try:
-            previous = self.get_comment_for_user(context['object'], request.user, comment_id)
+            comment = self.get_comment_for_user(context['object'], request.user, comment_id)
         except comments.get_model().DoesNotExist:
-            raise Http404()
+            raise Http404("you don't have such comment")
 
-        form = self.get_update_comment_form(previous)
+        templates = self.normal_templates
+        if request.is_ajax():
+            # async check
+            templates = self.async_templates
 
-        if form.is_valid():
-            new_comment = form.get_comment_object()
-            # TODO: fire up signals
-            new_comment.save()
+        # Check to see if the POST data overrides the view's next argument.
+        next = request.POST.get("next", self.get_default_return_url(context))
 
-        return render_to_response(
-            self.get_template(templates['comment_update'], context),
-            context,
-            RequestContext(request)
+        form = self.get_update_comment_form(context['object'], comment, request.POST or None)
+        if not form.is_valid():
+            context.update({
+                'form': form,
+                'next': next,
+            })
+            return render_to_response(
+                self.get_template(templates['update_template'], context),
+                context,
+                RequestContext(request)
+            )
+
+        comment.comment = form.get_comment_object().comment
+
+        # Signal that the comment is about to be saved
+        responses = signals.comment_will_be_posted.send(
+            sender=comment.__class__,
+            comment=comment,
+            request=request
         )
+
+        for (receiver, response) in responses:
+            if response == False:
+                return CommentPostBadRequest(
+                    "comment_will_be_posted receiver %r killed the comment" % receiver.__name__)
+
+        comment.save()
+
+        return HttpResponseRedirect(next)
+
 
 class PostComment(CommentView):
     normal_templates = dict(

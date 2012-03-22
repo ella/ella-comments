@@ -224,8 +224,16 @@ class TestCommentViews(CommentViewTestCase):
 
 class TestUpdateComment(CommentViewTestCase):
     def test_get_comment_for_user(self):
-        user = User.objects.create(username='boy')
-        first = create_comment(self.publishable, self.publishable.content_type, comment='first', user=user)
-        tools.assert_equals(first, views.update_comment.get_comment_for_user(self.publishable, user, first.pk))
-        tools.assert_raises(comments.get_model().DoesNotExist, lambda: views.update_comment.get_comment_for_user(self.publishable, user, 1024))
+        boy = User.objects.create(username='boy')
+        girl = User.objects.create(username='girl')
+        first = create_comment(self.publishable, self.publishable.content_type, comment='first', user=boy)
+        second = create_comment(self.publishable, self.publishable.content_type, comment='second', user=girl)
+        tools.assert_equals(first, views.update_comment.get_comment_for_user(self.publishable, boy, first.pk))
+        tools.assert_raises(comments.get_model().DoesNotExist, lambda: views.update_comment.get_comment_for_user(self.publishable, boy, 1024))
+        tools.assert_raises(comments.get_model().DoesNotExist, lambda: views.update_comment.get_comment_for_user(self.publishable, boy, second.pk))
+
+    def test_get_update_comment_form(self):
+        comment = create_comment(self.publishable, self.publishable.content_type, comment='some comment')
+        form = views.update_comment.get_update_comment_form(self.publishable, comment, None)
+        tools.assert_equals('some comment', form.initial['comment'])
 
