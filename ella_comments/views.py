@@ -25,12 +25,33 @@ class CommentView(object):
     def get_template(self, name, context):
         return get_templates_from_publishable(name, context['object'])
 
-class UpdateComment(CommentView):
+class SaveComment(CommentView):
+    def get_default_return_url(self, context):
+        return resolver.reverse(context['object'], 'comments-list')
+
+    def redirect_or_render_comment(self, request, context, templates, comment, next):
+        if next == 'none':
+            context.update({
+                    "comment" : comment,
+                    "parent": comment.parent,
+                    "next": next,
+                })
+            return render_to_response(
+                self.get_template(templates['detail_template'], context),
+                context,
+                RequestContext(request)
+            )
+
+        return HttpResponseRedirect(next)
+
+class UpdateComment(SaveComment):
     normal_templates = dict(
             update_template = 'comment_update.html',
+            detail_template = 'comment_detail.html',
         )
     async_templates = dict(
             update_template = 'comment_update_async.html',
+            detail_template = 'comment_detail_async.html',
         )
 
     def get_comment_for_user(self, obj, user, comment_id):
@@ -40,9 +61,6 @@ class UpdateComment(CommentView):
         initial = {'comment': comment.comment}
         form = comments.get_form()(obj, parent=comment.parent, initial=initial, data=data)
         return form
-
-    def get_default_return_url(self, context):
-        return resolver.reverse(context['object'], 'comments-list')
 
     @transaction.commit_on_success
     def __call__(self, request, context, comment_id):
@@ -66,6 +84,7 @@ class UpdateComment(CommentView):
         form = self.get_update_comment_form(context['object'], comment, request.POST or None)
         if not form.is_valid():
             context.update({
+                'comment': comment,
                 'form': form,
                 'next': next,
             })
@@ -91,10 +110,9 @@ class UpdateComment(CommentView):
 
         comment.save()
 
-        return HttpResponseRedirect(next)
+        return self.redirect_or_render_comment(request, context, templates, comment, next)
 
-
-class PostComment(CommentView):
+class PostComment(SaveComment):
     normal_templates = dict(
             form_template = 'comment_form.html',
             preview_template = 'comment_preview.html',
@@ -213,19 +231,7 @@ class PostComment(CommentView):
             request=request
         )
 
-        if next == 'none':
-            context.update({
-                    "comment" : comment,
-                    'parent': parent,
-                    "next": next,
-                })
-            return render_to_response(
-                self.get_template(templates['detail_template'], context),
-                context,
-                RequestContext(request)
-            )
-
-        return HttpResponseRedirect(next)
+        return self.redirect_or_render_comment(request, context, templates, comment, next)
 
 def group_threads(items, prop=lambda x: x.tree_path[:PATH_DIGITS]):
     groups = []
