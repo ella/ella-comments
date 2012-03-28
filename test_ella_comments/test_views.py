@@ -108,7 +108,7 @@ class TestCommentViewPagination(CommentViewTestCase):
 class TestCommentModeration(CommentViewTestCase):
     def setUp(self):
         super(TestCommentModeration, self).setUp()
-        self.opts = CommentOptionsObject.objects.create(target_ct=self.publishable.content_type, target_id=self.publishable.pk, premoderated=True)
+        CommentOptionsObject.objects.set_for_object(self.publishable, premoderated=True)
         self.form = comments.get_form()(target_object=self.publishable)
 
     def test_premoderated_comments_are_not_public(self):
@@ -130,7 +130,7 @@ class TestCommentViews(CommentViewTestCase):
 
     def test_comments_urls_is_blocked(self):
         template_loader.templates['404.html'] = ''
-        opts = CommentOptionsObject.objects.create(target_ct=self.publishable.content_type, target_id=self.publishable.pk, blocked=True)
+        CommentOptionsObject.objects.set_for_object(self.publishable, blocked=True)
         response = self.client.post(self.get_url('new'))
         tools.assert_equals(404, response.status_code)
 

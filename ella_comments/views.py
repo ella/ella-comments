@@ -139,7 +139,7 @@ class PostComment(SaveComment):
                 raise Http404('Comments only for logged in users.')
 
         opts = CommentOptionsObject.objects.get_for_object(context['object'])
-        if opts.blocked:
+        if opts.get('blocked', False):
             raise Http404('Comments are blocked for this object.')
         context['opts'] = opts
 
@@ -220,7 +220,7 @@ class PostComment(SaveComment):
                 return CommentPostBadRequest(
                     "comment_will_be_posted receiver %r killed the comment" % receiver.__name__)
 
-        if opts.premoderated:
+        if opts.get('premoderated', False):
             comment.is_public = False
 
         # Save the comment and signal that it was saved

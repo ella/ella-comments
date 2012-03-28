@@ -41,6 +41,6 @@ class TestTemplateTags(TestCase):
 
     def test_block_comments_for_article(self):
         from ella_comments.models import CommentOptionsObject
-        opts = CommentOptionsObject.objects.create(target_ct=self.publishable.content_type, target_id=self.publishable.pk, blocked=True)
+        CommentOptionsObject.objects.set_for_object(self.publishable, blocked=True)
         t = template.Template('''{% load ellacomments_tags %}{% get_comment_options for obj as opts %}{% if opts.blocked %}XX{% endif %}''')
         tools.assert_equals(u"XX", t.render(template.Context({'obj': self.publishable})))
