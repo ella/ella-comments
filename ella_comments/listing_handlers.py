@@ -4,7 +4,7 @@ import time
 from django.db.models.loading import get_model
 from django.contrib import comments
 
-from ella.core.cache.redis import RedisListingHandler, client
+from ella.core.cache.redis import RedisListingHandler, client, SlidingListingHandler
 from ella.core.models import Publishable
 
 log = logging.getLogger('ella_comments')
@@ -12,8 +12,7 @@ log = logging.getLogger('ella_comments')
 COMCOUNT_KEY = 'comcount:pub:%d:%s'
 LASTCOM_KEY = 'lastcom:pub:%d:%s'
 
-class MostCommentedListingHandler(RedisListingHandler):
-    PREFIX = 'comcount'
+class CommentListingHandler(object):
     def _get_score_limits(self):
         max_score = None
         min_score = None
@@ -27,7 +26,13 @@ class MostCommentedListingHandler(RedisListingHandler):
         Listing = get_model('core', 'listing')
         return Listing(publishable=publishable, publish_from=publishable.publish_from)
 
-class LastCommentedListingHandler(RedisListingHandler):
+class RecentMostCommentedListingHandler(CommentListingHandler, SlidingListingHandler):
+    PREFIX = 'slidingccount'
+
+class MostCommentedListingHandler(CommentListingHandler, RedisListingHandler):
+    PREFIX = 'comcount'
+
+class LastCommentedListingHandler(CommentListingHandler, RedisListingHandler):
     PREFIX = 'lastcom'
 
 def comment_pre_save(instance, **kwargs):
@@ -79,6 +84,7 @@ def comment_post_save(instance, **kwargs):
 
 def publishable_unpublished(publishable, **kwargs):
     pipe = client.pipeline()
+    RecentMostCommentedListingHandler.remove_publishable(publishable.category, publishable, pipe=pipe, commit=False)
     MostCommentedListingHandler.remove_publishable(publishable.category, publishable, pipe=pipe, commit=False)
     LastCommentedListingHandler.remove_publishable(publishable.category, publishable, pipe=pipe, commit=False)
     pipe.execute()
@@ -108,10 +114,13 @@ def comment_posted(comment, **kwargs):
         'user_id': comment.user_id or '',
         'username': comment.user.username if comment.user_id else comment.user_name,
     })
-    pipe.execute()
 
     obj = comment.content_object
-    if isinstance(obj, Publishable) and obj.is_published():
+    if not isinstance(obj, Publishable) or not obj.is_published():
+        pipe.execute()
+    else:
+        RecentMostCommentedListingHandler.incr_score(obj.category, obj, pipe=pipe, commit=False)
+        pipe.execute()
         publishable_published(obj)
 
 def connect_signals():
