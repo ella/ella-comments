@@ -52,3 +52,11 @@ INSTALLED_APPS = (
 )
 
 COMMENTS_APP = 'ella_comments'
+
+LISTING_HANDLERS = {
+        'default': 'ella.core.managers.ModelListingHandler',
+        'most_commented': 'ella_comments.listing_handlers.MostCommentedListingHandler',
+        'recently_commented': 'ella_comments.listing_handlers.RecentMostCommentedListingHandler',
+        'last_commented': 'ella_comments.listing_handlers.LastCommentedListingHandler',
+}
+

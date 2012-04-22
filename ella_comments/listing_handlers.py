@@ -1,13 +1,17 @@
 import logging
 import time
 
-from django.db.models.loading import get_model
 from django.contrib import comments
 
 from ella.core.cache.redis import RedisListingHandler, client, SlidingListingHandler
-from ella.core.models import Publishable
+from ella.core.models import Publishable, Listing
 
 log = logging.getLogger('ella_comments')
+
+MOST_COMMENTED_LH = 'most_commented'
+RECENTLY_COMMENTED_LH = 'recently_commented'
+LAST_COMMENTED_LH = 'last_commented'
+
 
 COMCOUNT_KEY = 'comcount:pub:%d:%s'
 LASTCOM_KEY = 'lastcom:pub:%d:%s'
@@ -23,7 +27,6 @@ class CommentListingHandler(object):
         return min_score, max_score
 
     def _get_listing(self, publishable, score):
-        Listing = get_model('core', 'listing')
         return Listing(publishable=publishable, publish_from=publishable.publish_from)
 
 class RecentMostCommentedListingHandler(CommentListingHandler, SlidingListingHandler):
@@ -84,9 +87,11 @@ def comment_post_save(instance, **kwargs):
 
 def publishable_unpublished(publishable, **kwargs):
     pipe = client.pipeline()
-    RecentMostCommentedListingHandler.remove_publishable(publishable.category, publishable, pipe=pipe, commit=False)
-    MostCommentedListingHandler.remove_publishable(publishable.category, publishable, pipe=pipe, commit=False)
-    LastCommentedListingHandler.remove_publishable(publishable.category, publishable, pipe=pipe, commit=False)
+    for k in (MOST_COMMENTED_LH, LAST_COMMENTED_LH, RECENTLY_COMMENTED_LH):
+        ListingHandler = Listing.objects.get_listing_handler(k, fallback=False)
+        if ListingHandler is None:
+            continue
+        ListingHandler.remove_publishable(publishable.category, publishable, pipe=pipe, commit=False)
     pipe.execute()
 
 def publishable_published(publishable, **kwargs):
@@ -97,9 +102,12 @@ def publishable_published(publishable, **kwargs):
 
     if cnt is None:
         cnt = 0
-    MostCommentedListingHandler.add_publishable(publishable.category, publishable, cnt, pipe=pipe, commit=False)
-    if lastcom:
-        LastCommentedListingHandler.add_publishable(publishable.category, publishable, lastcom['submit_date'], pipe=pipe, commit=False)
+
+    if Listing.objects.get_listing_handler(MOST_COMMENTED_LH, fallback=False):
+        Listing.objects.get_listing_handler(MOST_COMMENTED_LH).add_publishable(publishable.category, publishable, cnt, pipe=pipe, commit=False)
+
+    if lastcom and Listing.objects.get_listing_handler(LAST_COMMENTED_LH, fallback=False):
+        Listing.objects.get_listing_handler(LAST_COMMENTED_LH).add_publishable(publishable.category, publishable, lastcom['submit_date'], pipe=pipe, commit=False)
 
     pipe.execute()
 
@@ -118,8 +126,8 @@ def comment_posted(comment, **kwargs):
     obj = comment.content_object
     if not isinstance(obj, Publishable) or not obj.is_published():
         pipe.execute()
-    else:
-        RecentMostCommentedListingHandler.incr_score(obj.category, obj, pipe=pipe, commit=False)
+    elif Listing.objects.get_listing_handler(RECENTLY_COMMENTED_LH, fallback=False):
+        Listing.objects.get_listing_handler(RECENTLY_COMMENTED_LH).incr_score(obj.category, obj, pipe=pipe, commit=False)
         pipe.execute()
         publishable_published(obj)
 
