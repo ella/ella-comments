@@ -156,7 +156,7 @@ class CommentOptionsNode(EllaMixin, dt.BaseCommentNode):
         except template.VariableDoesNotExist:
             return ''
 
-        context.update[self.as_varname] = CommentOptionsObject.objects.get_for_object(obj)
+        context[self.as_varname] = CommentOptionsObject.objects.get_for_object(obj)
         return ''
 
 def get_comment_options(parser, token):
