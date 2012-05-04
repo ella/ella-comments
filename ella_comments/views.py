@@ -23,7 +23,10 @@ from ella_comments.models import CommentOptionsObject
 
 class CommentView(object):
     def get_template(self, name, context):
-        return get_templates_from_publishable(name, context['object'])
+        obj = context['object']
+        if hasattr(obj, 'get_templates'):
+            return obj.get_templates(name)
+        return get_templates_from_publishable(name, obj)
 
 class SaveComment(CommentView):
     def get_default_return_url(self, context):
