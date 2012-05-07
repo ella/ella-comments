@@ -50,7 +50,7 @@ class CommentOptionsObject(models.Model):
     objects = CommentOptionsManager()
 
     target_ct = ContentTypeForeignKey(verbose_name=_('Target content type'))
-    target_id = models.PositiveIntegerField(_('Target id'))
+    target_id = models.TextField(_('Target id'))
     target = CachedGenericForeignKey(ct_field="target_ct", fk_field="target_id")
 
     blocked = models.BooleanField(_('Disable comments'), default=False)
