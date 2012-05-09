@@ -103,8 +103,6 @@ class TestCommentViewPagination(CommentViewTestCase):
         tools.assert_equals(200, response.status_code)
         tools.assert_equals([a, ab, ac], list(response.context['comment_list']))
 
-
-
 class TestCommentModeration(CommentViewTestCase):
     def setUp(self):
         super(TestCommentModeration, self).setUp()
@@ -148,6 +146,29 @@ class TestCommentViews(CommentViewTestCase):
         tools.assert_equals(2, comments.get_model().objects.count())
         child = comments.get_model().objects.exclude(pk=c.pk)[0]
         tools.assert_equals(c, child.parent)
+
+    def post_comment_as_logged_in_user(self):
+        c = create_comment(self.publishable, self.publishable.content_type)
+        boy = User.objects.create(username='boy', email='boy@whiskey.com')
+        boy.set_password('boy')
+        boy.save()
+        self.client.login(username='boy', password='boy')
+        form = comments.get_form()(target_object=self.publishable, parent=c.pk)
+        data = { 'name': '', 'email': '', }
+        response = self.client.post(self.get_url('new'), self.get_form_data(form, **data))
+        tools.assert_equals(302, response.status_code)
+        tools.assert_equals(2, comments.get_model().objects.count())
+        child = comments.get_model().objects.exclude(pk=c.pk)[0]
+        tools.assert_equals(u'boy', child.user_name)
+        tools.assert_equals(u'boy@whiskey.com', child.user_email)
+
+    def test_post_works_for_logged_in_user(self):
+        self.post_comment_as_logged_in_user()
+
+    def test_post_works_for_logged_in_user_with_logged_only_form(self):
+        settings.COMMENTS_AUTHORIZED_ONLY = True
+        self.post_comment_as_logged_in_user()
+        settings.COMMENTS_AUTHORIZED_ONLY = False
 
     def test_post_renders_comment_form_on_get(self):
         template_loader.templates['page/comment_form.html'] = ''
