@@ -60,9 +60,10 @@ class UpdateComment(SaveComment):
     def get_comment_for_user(self, obj, user, comment_id):
         return comments.get_model().objects.for_model(obj).filter(user=user).get(pk=comment_id)
 
-    def get_update_comment_form(self, obj, comment, data):
+    def get_update_comment_form(self, obj, comment, data, user):
         initial = {'comment': comment.comment}
         form = comments.get_form()(obj, parent=comment.parent, initial=initial, data=data)
+        form.user = user
         return form
 
     @transaction.commit_on_success
@@ -84,7 +85,7 @@ class UpdateComment(SaveComment):
         # Check to see if the POST data overrides the view's next argument.
         next = request.POST.get("next", self.get_default_return_url(context))
 
-        form = self.get_update_comment_form(context['object'], comment, request.POST or None)
+        form = self.get_update_comment_form(context['object'], comment, request.POST or None, request.user)
         if not form.is_valid():
             context.update({
                 'comment': comment,
@@ -179,6 +180,7 @@ class PostComment(SaveComment):
 
         # construct the form
         form = comments.get_form()(context['object'], data=data, parent=parent_id)
+        form.user = request.user
 
         # Check security information
         if form.security_errors():

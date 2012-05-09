@@ -8,6 +8,8 @@ from threadedcomments.forms import ThreadedCommentForm
 
 
 class AuthorizedCommentForm(ThreadedCommentForm):
+    user = None
+
     def __init__(self, *args, **kwargs):
         "there is no such thing as user_name, user_email, user_url"
         super(AuthorizedCommentForm, self).__init__(*args, **kwargs)
@@ -40,6 +42,8 @@ class AuthorizedCommentForm(ThreadedCommentForm):
             title        = self.cleaned_data['title'],
             content_type = ContentType.objects.get_for_model(self.target_object),
             object_pk    = force_unicode(self.target_object._get_pk_val()),
+            user_name    = self.user.get_full_name() or self.user.username,
+            user_email   = self.user.email,
             comment      = self.cleaned_data["comment"],
             submit_date  = datetime.datetime.now(),
             site_id      = settings.SITE_ID,

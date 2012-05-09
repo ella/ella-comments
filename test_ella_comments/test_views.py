@@ -255,6 +255,6 @@ class TestUpdateComment(CommentViewTestCase):
 
     def test_get_update_comment_form(self):
         comment = create_comment(self.publishable, self.publishable.content_type, comment='some comment')
-        form = views.update_comment.get_update_comment_form(self.publishable, comment, None)
+        form = views.update_comment.get_update_comment_form(self.publishable, comment, None, None)
         tools.assert_equals('some comment', form.initial['comment'])
 
