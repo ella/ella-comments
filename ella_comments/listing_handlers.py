@@ -74,7 +74,7 @@ def comment_post_save(instance, **kwargs):
             client.hmset(last_keu, {
                 'submit_date': repr(time.mktime(last_com.submit_date.timetuple())),
                 'user_id': last_com.user_id or '',
-                'username': last_com.user.username if last_com.user_id else last_com.user_name,
+                'username': last_com.user_name,
             })
         except comments.get_model().DoesNotExist:
             client.delete(last_keu)
@@ -120,7 +120,7 @@ def comment_posted(comment, **kwargs):
     pipe.hmset(last_keu, {
         'submit_date': repr(time.mktime(comment.submit_date.timetuple())),
         'user_id': comment.user_id or '',
-        'username': comment.user.username if comment.user_id else comment.user_name,
+        'username': comment.user_name,
     })
 
     obj = comment.content_object
