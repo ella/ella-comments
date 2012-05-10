@@ -75,6 +75,8 @@ def comment_post_save(instance, **kwargs):
                 'submit_date': repr(time.mktime(last_com.submit_date.timetuple())),
                 'user_id': last_com.user_id or '',
                 'username': last_com.user_name,
+                'comment': last_com.comment,
+                'url': last_com.url,
             })
         except comments.get_model().DoesNotExist:
             client.delete(last_keu)
@@ -121,6 +123,8 @@ def comment_posted(comment, **kwargs):
         'submit_date': repr(time.mktime(comment.submit_date.timetuple())),
         'user_id': comment.user_id or '',
         'username': comment.user_name,
+        'comment': comment.comment,
+        'url': comment.url,
     })
 
     obj = comment.content_object
