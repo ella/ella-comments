@@ -13,8 +13,8 @@ RECENTLY_COMMENTED_LH = 'recently_commented'
 LAST_COMMENTED_LH = 'last_commented'
 
 
-COMCOUNT_KEY = 'comcount:pub:%d:%s'
-LASTCOM_KEY = 'lastcom:pub:%d:%s'
+COMCOUNT_KEY = 'comcount:pub:%s:%s'
+LASTCOM_KEY = 'lastcom:pub:%s:%s'
 
 class CommentListingHandler(object):
     def _get_score_limits(self):
