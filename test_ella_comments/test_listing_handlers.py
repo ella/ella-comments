@@ -62,6 +62,6 @@ class TestListingHandlers(TestCase):
 
         ]), set(client.keys('*')))
 
-        tools.assert_equals({'submit_date': '1286698210.0', 'user_id': '', 'username': 'kvbik'}, client.hgetall('lastcom:pub:%d:1' % ct_id))
+        tools.assert_equals({'submit_date': '1286698210.0', 'user_id': '', 'username': 'kvbik', 'comment': '', 'url': ''}, client.hgetall('lastcom:pub:%d:1' % ct_id))
         tools.assert_equals('1', client.get('comcount:pub:%d:1' % ct_id))
 
