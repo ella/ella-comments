@@ -64,7 +64,7 @@ class RenderCommentFormNode(EllaMixin, tt.RenderCommentFormNode): pass
 class CommentCountNode(EllaMixin, dt.CommentCountNode):
     @property
     def redis_most_commented_enabled(self):
-        return False
+        return bool(client)
 
     def get_context_value_from_redis(self, context, qs):
         ctype, object_pk = self.get_target_ctype_pk(context)
