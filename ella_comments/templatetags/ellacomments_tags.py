@@ -8,9 +8,11 @@ from threadedcomments.util import annotate_tree_properties, fill_tree
 from threadedcomments.templatetags import threadedcomments_tags as tt
 
 from ella.core.models import Publishable
+from ella.core.cache.redis import client
 
 from ella_comments.models import CommentOptionsObject
 from ella_comments import views
+from ella_comments.listing_handlers import COMCOUNT_KEY
 
 register = template.Library()
 
@@ -58,7 +60,21 @@ class EllaMixin(object):
 # Add the mixins to all Nodes from threadedcomments
 class CommentFormNode(EllaMixin, tt.CommentFormNode): pass
 class RenderCommentFormNode(EllaMixin, tt.RenderCommentFormNode): pass
-class CommentCountNode(EllaMixin, dt.CommentCountNode): pass
+
+class CommentCountNode(EllaMixin, dt.CommentCountNode):
+    @property
+    def redis_most_commented_enabled(self):
+        return False
+
+    def get_context_value_from_redis(self, context, qs):
+        ctype, object_pk = self.get_target_ctype_pk(context)
+        return client.get(COMCOUNT_KEY % (ctype.pk, object_pk))
+
+    def get_context_value_from_queryset(self, context, qs):
+        if self.redis_most_commented_enabled:
+            return self.get_context_value_from_redis(context, qs)
+        return super(CommentCountNode, self).get_context_value_from_queryset(context, qs)
+
 class CommentListNode(EllaMixin, tt.CommentListNode):
     def get_context_value_from_queryset(self, context, qs):
         if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
