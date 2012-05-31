@@ -68,7 +68,8 @@ class CommentCountNode(EllaMixin, dt.CommentCountNode):
 
     def get_context_value_from_redis(self, context, qs):
         ctype, object_pk = self.get_target_ctype_pk(context)
-        return client.get(COMCOUNT_KEY % (ctype.pk, object_pk))
+        cnt = client.get(COMCOUNT_KEY % (ctype.pk, object_pk))
+        return cnt or 0
 
     def get_context_value_from_queryset(self, context, qs):
         if self.redis_most_commented_enabled:
