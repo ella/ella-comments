@@ -34,8 +34,7 @@ class CommentOptionsManager(models.Manager):
 
         ct = ContentType.objects.get_for_model(obj)
         try:
-            coo= get_cached_object(CommentOptionsObject, target_ct=ct,
-                target_id=obj.pk)
+            coo = get_cached_object(CommentOptionsObject, target_ct=ct, target_id=obj.pk)
             return {
                 'blocked': coo.blocked,
                 'premoderated': coo.premoderated,

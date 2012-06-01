@@ -4,7 +4,7 @@ from django.test import TestCase
 from test_ella_comments.helpers import create_comment
 from test_ella.test_core import create_basic_categories, create_and_place_a_publishable
 
-from ella_comments.listing_handlers import client
+from ella.core.cache.redis import client
 
 from nose import tools, SkipTest
 
