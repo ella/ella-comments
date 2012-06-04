@@ -3,6 +3,7 @@ from django.contrib.comments.templatetags import comments as dt
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.utils.encoding import smart_unicode
+from django.core.cache import cache
 
 from threadedcomments.util import annotate_tree_properties, fill_tree
 from threadedcomments.templatetags import threadedcomments_tags as tt
@@ -76,18 +77,26 @@ class CommentCountNode(EllaMixin, dt.CommentCountNode):
             return self.get_context_value_from_redis(context, qs)
         return super(CommentCountNode, self).get_context_value_from_queryset(context, qs)
 
+COMMENT_LIST_KEY = 'comments:list:%s:%s'
+
 class CommentListNode(EllaMixin, tt.CommentListNode):
     def get_context_value_from_queryset(self, context, qs):
-        if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
-            items = group_threads(qs)
-        elif getattr(settings, 'COMMENTS_FLAT', False):
-            items = list(qs.order_by('-submit_date'))
-        else:
-            items = list(qs)
-        paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
-        if getattr(settings, 'COMMENTS_REVERSED', False):
-            items = list(reversed(items))
-        items = items[:paginate_by]
+        ctype, object_pk = self.get_target_ctype_pk(context)
+        # TODO: quick fix, need to add flags for group_threads and flat
+        cache_key = COMMENT_LIST_KEY % (ctype.pk, object_pk)
+        items = cache.get(cache_key)
+        if items is None:
+            if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
+                items = group_threads(qs)
+            elif getattr(settings, 'COMMENTS_FLAT', False):
+                items = list(qs.order_by('-submit_date'))
+            else:
+                items = list(qs)
+            paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
+            if getattr(settings, 'COMMENTS_REVERSED', False):
+                items = list(reversed(items))
+            items = items[:paginate_by]
+            cache.set(cache_key, items, timeout=30)
         return items
 
 # copied tag registrations from threadedcomments
