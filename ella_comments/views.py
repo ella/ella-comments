@@ -18,7 +18,7 @@ from threadedcomments.models import PATH_DIGITS
 from ella.core.views import get_templates_from_publishable
 from ella.core.custom_urls import resolver
 
-from ella_comments.models import CommentOptionsObject
+from ella_comments.models import CommentOptionsObject, get_comment_list
 
 
 class CommentView(object):
@@ -238,16 +238,6 @@ class PostComment(SaveComment):
 
         return self.redirect_or_render_comment(request, context, templates, comment, next)
 
-def group_threads(items, prop=lambda x: x.tree_path[:PATH_DIGITS]):
-    groups = []
-    prev = None
-    for i in items:
-        if prop(i) != prev:
-            prev = prop(i)
-            groups.append([])
-        groups[-1].append(i)
-    return groups
-
 class ListComments(CommentView):
     normal_templates = dict(
             list_template = 'comment_list.html',
@@ -296,14 +286,8 @@ class ListComments(CommentView):
 
         page_no, paginate_by, reverse = self.get_display_params(request.GET)
 
-        if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
-            items = group_threads(qs)
-        elif getattr(settings, 'COMMENTS_FLAT', False):
-            items = list(qs.order_by('-submit_date'))
-        else:
-            items = list(qs)
-        if reverse:
-            items = list(reversed(items))
+        # TODO: quickfix that won't work with cache
+        items = get_comment_list(qs, context['object'].content_type, context['object'].pk, reverse)
 
         paginator = Paginator(items, paginate_by)
 

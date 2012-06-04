@@ -1,14 +1,47 @@
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import ugettext_lazy as _
+from django.conf import settings
+from django.core.cache import cache
 
 from ella.core.cache import CachedGenericForeignKey, get_cached_object, ContentTypeForeignKey
+
+from threadedcomments.models import PATH_DIGITS
 
 DEFAULT_COMMENT_OPTIONS = {
     'blocked': False,
     'premoderated': False,
     'check_profanities': True
 }
+
+COMMENT_LIST_KEY = 'comments:list:%s:%s'
+
+def get_comment_list(qs, ctype, object_pk, reverse=None):
+    cache_key = COMMENT_LIST_KEY % (ctype.pk, object_pk)
+    items = cache.get(cache_key)
+    if items is None:
+        if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
+            items = group_threads(qs)
+        elif getattr(settings, 'COMMENTS_FLAT', False):
+            items = list(qs.order_by('-submit_date'))
+        else:
+            items = list(qs)
+
+        if (reverse is not None and reverse) or getattr(settings, 'COMMENTS_REVERSED', False):
+            items = list(reversed(items))
+
+        cache.set(cache_key, items, timeout=30)
+    return items
+
+def group_threads(items, prop=lambda x: x.tree_path[:PATH_DIGITS]):
+    groups = []
+    prev = None
+    for i in items:
+        if prop(i) != prev:
+            prev = prop(i)
+            groups.append([])
+        groups[-1].append(i)
+    return groups
 
 
 class CommentOptionsManager(models.Manager):
