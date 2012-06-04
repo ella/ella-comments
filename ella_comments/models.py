@@ -62,7 +62,7 @@ class CachedCommentList(object):
 
     def __len__(self):
         if client and not self.ids:
-            return int(client.get(COMCOUNT_KEY % (self.ctype.pk, self.object_pk)))
+            return int(client.get(COMCOUNT_KEY % (self.ctype.pk, self.object_pk)) or 0)
         cnt = cache.get(self._count_cache_key())
         if cnt is None:
             cnt = self.get_query_set().count()
@@ -76,9 +76,8 @@ class CachedCommentList(object):
         if items is None:
             qs = self.get_query_set()
             if start is not None:
-                items = qs[start:stop]
-            else:
-                items = list(qs)
+                qs = qs[start:stop]
+            items = list(qs)
             cache.set(cache_key, items, self.CACHE_TIMEOUT)
         return items
 
