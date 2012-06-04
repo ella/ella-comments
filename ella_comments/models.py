@@ -14,10 +14,13 @@ DEFAULT_COMMENT_OPTIONS = {
     'check_profanities': True
 }
 
-COMMENT_LIST_KEY = 'comments:list:%s:%s'
+COMMENT_LIST_KEY = 'comments:list:%s:%s:%d'
 
 def get_comment_list(qs, ctype, object_pk, reverse=None):
-    cache_key = COMMENT_LIST_KEY % (ctype.pk, object_pk)
+    if reverse is None:
+        reverse = getattr(settings, 'COMMENTS_REVERSED', False)
+
+    cache_key = COMMENT_LIST_KEY % (ctype.pk, object_pk, 1 if reverse else 0)
     items = cache.get(cache_key)
     if items is None:
         if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
@@ -27,7 +30,7 @@ def get_comment_list(qs, ctype, object_pk, reverse=None):
         else:
             items = list(qs)
 
-        if (reverse is not None and reverse) or getattr(settings, 'COMMENTS_REVERSED', False):
+        if reverse:
             items = list(reversed(items))
 
         cache.set(cache_key, items, timeout=30)
