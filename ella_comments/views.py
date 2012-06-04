@@ -3,6 +3,7 @@ import operator
 from django.contrib import comments
 from django.contrib.comments import signals
 from django.contrib.comments.views.comments import CommentPostBadRequest
+from django.contrib.contenttypes.models import ContentType
 from django.utils.html import escape
 from django.template import RequestContext
 from django.shortcuts import get_object_or_404, render_to_response
@@ -287,7 +288,8 @@ class ListComments(CommentView):
         page_no, paginate_by, reverse = self.get_display_params(request.GET)
 
         # TODO: quickfix that won't work with cache
-        items = get_comment_list(qs, context['object'].content_type, context['object'].pk, reverse)
+        ct = ContentType.objects.get_for_model(context['object'])
+        items = get_comment_list(qs, ct, context['object'].pk, reverse)
 
         paginator = Paginator(items, paginate_by)
 
