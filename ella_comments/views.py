@@ -8,18 +8,16 @@ from django.utils.html import escape
 from django.template import RequestContext
 from django.shortcuts import get_object_or_404, render_to_response
 from django.http import HttpResponseRedirect, Http404
-from django.db.models import Q
 from django.db import transaction
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 
-from threadedcomments.models import PATH_DIGITS
 
 from ella.core.views import get_templates_from_publishable
 from ella.core.custom_urls import resolver
 
-from ella_comments.models import CommentOptionsObject, get_comment_list
+from ella_comments.models import CommentOptionsObject, CachedCommentList
 
 
 class CommentView(object):
@@ -268,30 +266,15 @@ class ListComments(CommentView):
             # async check
             templates = self.async_templates
 
-        # basic queryset
-        qs = comments.get_model().objects.for_model(context['object']).order_by('tree_path')
-
-        # XXX factor out into a manager
-        qs = qs.filter(is_public=True)
-        if getattr(settings, 'COMMENTS_HIDE_REMOVED', False):
-            qs = qs.filter(is_removed=False)
-
-        # only individual branches requested
-        if 'ids' in request.GET:
-            ids = request.GET.getlist('ids')
-            # branch is everything whose tree_path begins with the same prefix
-            qs = qs.filter(reduce(
-                        operator.or_,
-                        map(lambda x: Q(tree_path__startswith=x.zfill(PATH_DIGITS)), ids)
-                ))
-
         page_no, paginate_by, reverse = self.get_display_params(request.GET)
 
-        # TODO: quickfix that won't work with cache
-        ct = ContentType.objects.get_for_model(context['object'])
-        items = get_comment_list(qs, ct, context['object'].pk, reverse)
+        ids = ()
+        if 'ids' in request.GET:
+            ids = request.GET.getlist('ids')
+        ctype = ContentType.objects.get_for_model(context['object'])
+        clist = CachedCommentList(ctype, context['object'].pk, reverse=reverse, ids=ids)
 
-        paginator = Paginator(items, paginate_by)
+        paginator = Paginator(clist, paginate_by)
 
         if page_no > paginator.num_pages or page_no < 1:
             raise Http404()

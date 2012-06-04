@@ -10,8 +10,7 @@ from threadedcomments.templatetags import threadedcomments_tags as tt
 from ella.core.models import Publishable
 from ella.core.cache.redis import client
 
-from ella_comments.models import CommentOptionsObject
-from ella_comments import models
+from ella_comments.models import CommentOptionsObject, CachedCommentList, group_threads
 from ella_comments.listing_handlers import COMCOUNT_KEY
 
 register = template.Library()
@@ -62,26 +61,22 @@ class CommentFormNode(EllaMixin, tt.CommentFormNode): pass
 class RenderCommentFormNode(EllaMixin, tt.RenderCommentFormNode): pass
 
 class CommentCountNode(EllaMixin, dt.CommentCountNode):
-    @property
-    def redis_most_commented_enabled(self):
-        return bool(client)
-
-    def get_context_value_from_redis(self, context, qs):
+    def get_query_set(self, context):
         ctype, object_pk = self.get_target_ctype_pk(context)
-        cnt = client.get(COMCOUNT_KEY % (ctype.pk, object_pk))
-        return cnt or 0
+        return CachedCommentList(ctype, object_pk)
 
     def get_context_value_from_queryset(self, context, qs):
-        if self.redis_most_commented_enabled:
-            return self.get_context_value_from_redis(context, qs)
-        return super(CommentCountNode, self).get_context_value_from_queryset(context, qs)
+        return qs.count()
 
 
 class CommentListNode(EllaMixin, tt.CommentListNode):
-    def get_context_value_from_queryset(self, context, qs):
+    def get_query_set(self, context):
         ctype, object_pk = self.get_target_ctype_pk(context)
+        return CachedCommentList(ctype, object_pk)
+
+    def get_context_value_from_queryset(self, context, qs):
         paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
-        return models.get_comment_list(qs, ctype, object_pk)[:paginate_by]
+        return qs[:paginate_by]
 
 # copied tag registrations from threadedcomments
 def get_comment_list(parser, token):
@@ -181,7 +176,7 @@ def get_comment_options(parser, token):
     return CommentOptionsNode.handle_token(parser, token)
 
 
-register.filter(models.group_threads)
+register.filter(group_threads)
 register.filter(annotate_tree)
 register.filter(fill_tree)
 register.tag(get_comment_list)

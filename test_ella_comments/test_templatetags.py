@@ -12,6 +12,7 @@ from test_ella_comments.helpers import create_comment
 
 class TestTemplateTags(TestCase):
     def setUp(self):
+        client.flushdb()
         super(TestTemplateTags, self).setUp()
         create_basic_categories(self)
         create_and_place_a_publishable(self)

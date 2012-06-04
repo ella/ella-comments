@@ -1,12 +1,18 @@
+import operator
+
 from django.db import models
+from django.contrib import comments
 from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import ugettext_lazy as _
 from django.conf import settings
 from django.core.cache import cache
 
 from ella.core.cache import CachedGenericForeignKey, get_cached_object, ContentTypeForeignKey
+from ella.core.cache.redis import client
 
 from threadedcomments.models import PATH_DIGITS
+
+from ella_comments.listing_handlers import COMCOUNT_KEY
 
 DEFAULT_COMMENT_OPTIONS = {
     'blocked': False,
@@ -16,25 +22,74 @@ DEFAULT_COMMENT_OPTIONS = {
 
 COMMENT_LIST_KEY = 'comments:list:%s:%s:%d'
 
-def get_comment_list(qs, ctype, object_pk, reverse=None):
-    if reverse is None:
-        reverse = getattr(settings, 'COMMENTS_REVERSED', False)
+class CachedCommentList(object):
+    CACHE_TIMEOUT = 30
+    def __init__(self, ctype, object_pk, reverse=None, group_threads=None, flat=None, ids=()):
+        self.ctype = ctype
+        self.object_pk = object_pk
+        self.reverse = reverse if reverse is not None else getattr(settings, 'COMMENTS_REVERSED', False)
+        self.group_threads = group_threads if group_threads is not None else getattr(settings, 'COMMENTS_GROUP_THREADS', False)
+        self.flat = flat if flat is not None else getattr(settings, 'COMMENTS_FLAT', False)
+        self.ids = ids
 
-    cache_key = COMMENT_LIST_KEY % (ctype.pk, object_pk, 1 if reverse else 0)
-    items = cache.get(cache_key)
-    if items is None:
-        if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
-            items = group_threads(qs)
-        elif getattr(settings, 'COMMENTS_FLAT', False):
-            items = list(qs.order_by('-submit_date'))
-        else:
-            items = list(qs)
+    def _count_cache_key(self):
+        return 'comments:count:%s:%s:%s' % (self.ctype.pk, self.object_pk, ','.join(map(str, sorted(self.ids))))
 
-        if reverse:
-            items = list(reversed(items))
+    def _cache_key(self, start=None, stop=None):
+        return 'comments:list:%s:%s:%d:%d:%d:%s:%s:%s' % (
+            self.ctype.pk, self.object_pk,
+            1 if self.reverse else 0,
+            1 if self.group_threads else 0,
+            1 if self.flat else 0,
+            ','.join(map(str, sorted(self.ids))),
+            start or '', stop or ''
+        )
 
-        cache.set(cache_key, items, timeout=30)
-    return items
+    def get_query_set(self):
+        # basic queryset
+        qs = comments.get_model().objects.filter(content_type=self.ctype, object_pk=self.object_pk, site__pk=settings.SITE_ID, is_public=True)
+        if getattr(settings, 'COMMENTS_HIDE_REMOVED', False):
+            qs = qs.filter(is_removed=False)
+
+        # only individual branches requested
+        if self.ids:
+            # branch is everything whose tree_path begins with the same prefix
+            qs = qs.filter(reduce(
+                        operator.or_,
+                        map(lambda x: models.Q(tree_path__startswith=x.zfill(PATH_DIGITS)), self.ids)
+                ))
+        return qs
+
+    def __len__(self):
+        if client and not self.ids:
+            return int(client.get(COMCOUNT_KEY % (self.ctype.pk, self.object_pk)))
+        cnt = cache.get(self._count_cache_key())
+        if cnt is None:
+            cnt = self.get_query_set().count()
+            cache.set(self._count_cache_key(), cnt, self.CACHE_TIMEOUT)
+        return int(cnt)
+    count = __len__
+
+    def get_list(self, start=None, stop=None):
+        cache_key = self._cache_key(start, stop)
+        items = cache.get(cache_key)
+        if items is None:
+            qs = self.get_query_set()
+            if start is not None:
+                items = qs[start:stop]
+            else:
+                items = list(qs)
+            cache.set(cache_key, items, self.CACHE_TIMEOUT)
+        return items
+
+    def __getitem__(self, key):
+        assert isinstance(key, slice), 'CachedCommentList only supports slicing'
+        assert not key.step, 'CachedCommentList doesn\'t support step'
+        start, stop = key.start or 0, key.stop or 0
+        assert stop > start, 'CachedCommentList only supports positive slices'
+
+        return self.get_list(start, stop)
+
 
 def group_threads(items, prop=lambda x: x.tree_path[:PATH_DIGITS]):
     groups = []
