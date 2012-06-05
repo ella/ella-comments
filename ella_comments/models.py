@@ -85,7 +85,7 @@ class CachedCommentList(object):
         assert isinstance(key, slice), 'CachedCommentList only supports slicing'
         assert not key.step, 'CachedCommentList doesn\'t support step'
         start, stop = key.start or 0, key.stop or 0
-        assert stop > start, 'CachedCommentList only supports positive slices'
+        assert stop >= start, 'CachedCommentList only supports positive slices'
 
         return self.get_list(start, stop)
 
