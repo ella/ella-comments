@@ -58,6 +58,13 @@ class CachedCommentList(object):
                         operator.or_,
                         map(lambda x: models.Q(tree_path__startswith=x.zfill(PATH_DIGITS)), self.ids)
                 ))
+
+        if self.flat:
+            order = '-submit_date' if not self.reverse else 'submit_date'
+        else:
+            order = 'tree_path' if not self.reverse else '-tree_path'
+        qs = qs.order_by(order)
+
         return qs
 
     def __len__(self):
