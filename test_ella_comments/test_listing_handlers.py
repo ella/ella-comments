@@ -1,8 +1,9 @@
 from datetime import datetime
 from django.test import TestCase
 
+from ella.utils.test_helpers import create_basic_categories, create_and_place_a_publishable
+
 from test_ella_comments.helpers import create_comment
-from test_ella.test_core import create_basic_categories, create_and_place_a_publishable
 
 from ella.core.cache.redis import client
 

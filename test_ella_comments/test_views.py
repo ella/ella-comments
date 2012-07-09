@@ -9,8 +9,7 @@ from django.template.defaultfilters import slugify
 from django.contrib.auth.models import User
 from django.conf import settings
 
-from test_ella import template_loader
-from test_ella.test_core import create_basic_categories, create_and_place_a_publishable
+from ella.utils.test_helpers import create_basic_categories, create_and_place_a_publishable
 
 # register must be imported for custom urls
 from ella_comments import register
@@ -18,6 +17,7 @@ from ella_comments.models import CommentOptionsObject
 from ella_comments import views, models
 
 from test_ella_comments.helpers import create_comment
+from test_ella_comments import template_loader
 
 class CommentViewTestCase(TestCase):
     def setUp(self):

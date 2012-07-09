@@ -5,9 +5,10 @@ from mock import patch
 
 from django import template
 from ella.core.cache.redis import client
+from ella.utils.test_helpers import create_basic_categories, create_and_place_a_publishable
+
 from ella_comments.listing_handlers import COMCOUNT_KEY
 
-from test_ella.test_core import create_basic_categories, create_and_place_a_publishable
 from test_ella_comments.helpers import create_comment
 
 class TestTemplateTags(TestCase):
