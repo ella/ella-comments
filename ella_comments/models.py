@@ -1,6 +1,7 @@
 import operator
 
 from django.db import models
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.contrib import comments
 from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import ugettext_lazy as _
@@ -13,6 +14,7 @@ from ella.core.cache.redis import client
 from threadedcomments.models import PATH_DIGITS
 
 from ella_comments.listing_handlers import COMCOUNT_KEY
+from ella_comments.signals import comment_removed
 
 DEFAULT_COMMENT_OPTIONS = {
     'blocked': False,
@@ -163,3 +165,27 @@ class CommentOptionsObject(models.Model):
     def __unicode__(self):
         return u"%s: %s" % (_("Comment Options"), self.target)
 
+# signal handlers for sending comment_removed signals
+def comment_pre_save(instance, **kwargs):
+    if instance.pk:
+        try:
+            old_instance = instance.__class__._default_manager.get(pk=instance.pk)
+        except instance.__class__.DoesNotExist:
+            return
+        instance.__pub_info = {
+            'is_public': old_instance.is_public,
+            'is_removed': old_instance.is_removed,
+        }
+
+def comment_post_save(instance, **kwargs):
+    if hasattr(instance, '__pub_info'):
+        # if this is a newly removed comment, send the comment_removed signal
+        if not instance.__pub_info['is_removed'] and instance.is_removed:
+            comment_removed.send(sender=instance.__class__, comment=instance)
+
+def comment_post_delete(instance, **kwargs):
+    comment_removed.send(sender=instance.__class__, comment=instance)
+
+pre_save.connect(comment_pre_save, sender=comments.get_model())
+post_save.connect(comment_post_save, sender=comments.get_model())
+post_delete.connect(comment_post_delete, sender=comments.get_model())

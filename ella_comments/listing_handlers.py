@@ -38,17 +38,6 @@ class MostCommentedListingHandler(CommentListingHandler, RedisListingHandler):
 class LastCommentedListingHandler(CommentListingHandler, RedisListingHandler):
     PREFIX = 'lastcom'
 
-def comment_pre_save(instance, **kwargs):
-    if instance.pk:
-        try:
-            old_instance = instance.__class__._default_manager.get(pk=instance.pk)
-        except instance.__class__.DoesNotExist:
-            return
-        instance.__pub_info = {
-            'is_public': old_instance.is_public,
-            'is_removed': old_instance.is_removed,
-        }
-
 def comment_post_save(instance, **kwargs):
     if hasattr(instance, '__pub_info'):
         is_public = instance.is_public and not instance.is_removed
@@ -138,13 +127,12 @@ def comment_posted(comment, **kwargs):
 def connect_signals():
     from django.contrib.comments.signals import comment_was_posted
     from ella.core.signals import content_published, content_unpublished
-    from django.db.models.signals import pre_save, post_save
+    from django.db.models.signals import post_save
     content_published.connect(publishable_published)
     content_unpublished.connect(publishable_unpublished)
 
     comment_was_posted.connect(comment_posted)
 
-    pre_save.connect(comment_pre_save, sender=comments.get_model())
     post_save.connect(comment_post_save, sender=comments.get_model())
 
 if client:
