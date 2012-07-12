@@ -302,3 +302,28 @@ if getattr(settings, 'COMMENTS_AUTHORIZED_ONLY', False):
 list_comments = ListComments()
 update_comment = UpdateComment()
 
+class OneCommentRedir(object):
+    def get_context(comment_id, paginate_by, reverse):
+        Comment = comments.get_model()
+        comment = Comment.objects.get(pk=comment_id)
+        target_object = comment.target_object
+
+        ctype = ContentType.objects.get_for_model(target_object)
+        clist = CachedCommentList(ctype, target_object.pk, reverse=reverse, ids=())
+
+        context = {
+            'comment': comment,
+            'object': target_object,
+            'comment_list': clist,
+        }
+        return context
+
+    def __call__(self, request, comment_id):
+        # TODO: get values via params
+        paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
+        reverse = True
+        c = self.get_context(comment_id, paginate_by, reverse)
+        return HttpResponseRedirect(c['object'].get_absolute_url())
+
+one_comment_redir = OneCommentRedir()
+

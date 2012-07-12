@@ -258,3 +258,7 @@ class TestUpdateComment(CommentViewTestCase):
         form = views.update_comment.get_update_comment_form(self.publishable, comment, None, None)
         tools.assert_equals('some comment', form.initial['comment'])
 
+class TestOneCommentRedir(CommentViewTestCase):
+    def test_proper_object(self):
+        tools.assert_true(False)
+
