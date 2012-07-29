@@ -1,8 +1,8 @@
-import datetime
-
 from django.contrib.contenttypes.models import ContentType
 from django.utils.encoding import force_unicode
 from django.conf import settings
+
+from ella.utils.timezone import now
 
 from threadedcomments.forms import ThreadedCommentForm
 
@@ -45,7 +45,7 @@ class AuthorizedCommentForm(ThreadedCommentForm):
             user_name    = self.user.get_full_name() or self.user.username,
             user_email   = self.user.email,
             comment      = self.cleaned_data["comment"],
-            submit_date  = datetime.datetime.now(),
+            submit_date  = now(),
             site_id      = settings.SITE_ID,
             is_public    = True,
             is_removed   = False,
