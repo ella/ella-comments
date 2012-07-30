@@ -1,10 +1,10 @@
 import logging
-import time
 
 from django.contrib import comments
 
 from ella.core.cache.redis import RedisListingHandler, client, SlidingListingHandler
 from ella.core.models import Publishable, Listing
+from ella.utils.timezone import to_timestamp
 
 log = logging.getLogger('ella_comments')
 
@@ -61,7 +61,7 @@ def comment_post_save(instance, **kwargs):
             # update the last comment info
             last_com = comments.get_model()._default_manager.filter(content_type_id=instance.content_type_id, object_pk=instance.object_pk, is_public=True, is_removed=False).latest('submit_date')
             client.hmset(last_keu, {
-                'submit_date': repr(time.mktime(last_com.submit_date.utctimetuple())),
+                'submit_date': repr(to_timestamp(last_com.submit_date)),
                 'user_id': last_com.user_id or '',
                 'username': last_com.user_name,
                 'comment': last_com.comment,
@@ -109,7 +109,7 @@ def comment_posted(comment, **kwargs):
     pipe = client.pipeline()
     pipe.incr(count_key)
     pipe.hmset(last_keu, {
-        'submit_date': repr(time.mktime(comment.submit_date.utctimetuple())),
+        'submit_date': repr(to_timestamp(comment.submit_date)),
         'user_id': comment.user_id or '',
         'username': comment.user_name,
         'comment': comment.comment,
