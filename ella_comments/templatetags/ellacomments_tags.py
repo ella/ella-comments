@@ -8,9 +8,10 @@ from threadedcomments.util import annotate_tree_properties, fill_tree
 from threadedcomments.templatetags import threadedcomments_tags as tt
 
 from ella.core.models import Publishable
+from ella.core.cache.redis import client
 
-from ella_comments.models import CommentOptionsObject
-from ella_comments import views
+from ella_comments.models import CommentOptionsObject, CachedCommentList, group_threads
+from ella_comments.listing_handlers import COMCOUNT_KEY
 
 register = template.Library()
 
@@ -58,20 +59,24 @@ class EllaMixin(object):
 # Add the mixins to all Nodes from threadedcomments
 class CommentFormNode(EllaMixin, tt.CommentFormNode): pass
 class RenderCommentFormNode(EllaMixin, tt.RenderCommentFormNode): pass
-class CommentCountNode(EllaMixin, dt.CommentCountNode): pass
-class CommentListNode(EllaMixin, tt.CommentListNode):
+
+class CommentCountNode(EllaMixin, dt.CommentCountNode):
+    def get_query_set(self, context):
+        ctype, object_pk = self.get_target_ctype_pk(context)
+        return CachedCommentList(ctype, object_pk)
+
     def get_context_value_from_queryset(self, context, qs):
-        if getattr(settings, 'COMMENTS_GROUP_THREADS', False):
-            items = group_threads(qs)
-        elif getattr(settings, 'COMMENTS_FLAT', False):
-            items = list(qs.order_by('-submit_date'))
-        else:
-            items = list(qs)
+        return qs.count()
+
+
+class CommentListNode(EllaMixin, tt.CommentListNode):
+    def get_query_set(self, context):
+        ctype, object_pk = self.get_target_ctype_pk(context)
+        return CachedCommentList(ctype, object_pk)
+
+    def get_context_value_from_queryset(self, context, qs):
         paginate_by = getattr(settings, 'COMMENTS_PAGINATE_BY', 50)
-        if getattr(settings, 'COMMENTS_REVERSED', False):
-            items = list(reversed(items))
-        items = items[:paginate_by]
-        return items
+        return qs[:paginate_by]
 
 # copied tag registrations from threadedcomments
 def get_comment_list(parser, token):
@@ -170,9 +175,6 @@ def get_comment_options(parser, token):
     """
     return CommentOptionsNode.handle_token(parser, token)
 
-
-def group_threads(comments):
-    return views.group_threads(comments)
 
 register.filter(group_threads)
 register.filter(annotate_tree)

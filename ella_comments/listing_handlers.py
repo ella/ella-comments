@@ -1,10 +1,10 @@
 import logging
-import time
 
 from django.contrib import comments
 
 from ella.core.cache.redis import RedisListingHandler, client, SlidingListingHandler
 from ella.core.models import Publishable, Listing
+from ella.utils.timezone import to_timestamp
 
 log = logging.getLogger('ella_comments')
 
@@ -38,17 +38,6 @@ class MostCommentedListingHandler(CommentListingHandler, RedisListingHandler):
 class LastCommentedListingHandler(CommentListingHandler, RedisListingHandler):
     PREFIX = 'lastcom'
 
-def comment_pre_save(instance, **kwargs):
-    if instance.pk:
-        try:
-            old_instance = instance.__class__._default_manager.get(pk=instance.pk)
-        except instance.__class__.DoesNotExist:
-            return
-        instance.__pub_info = {
-            'is_public': old_instance.is_public,
-            'is_removed': old_instance.is_removed,
-        }
-
 def comment_post_save(instance, **kwargs):
     if hasattr(instance, '__pub_info'):
         is_public = instance.is_public and not instance.is_removed
@@ -72,7 +61,7 @@ def comment_post_save(instance, **kwargs):
             # update the last comment info
             last_com = comments.get_model()._default_manager.filter(content_type_id=instance.content_type_id, object_pk=instance.object_pk, is_public=True, is_removed=False).latest('submit_date')
             client.hmset(last_keu, {
-                'submit_date': repr(time.mktime(last_com.submit_date.timetuple())),
+                'submit_date': repr(to_timestamp(last_com.submit_date)),
                 'user_id': last_com.user_id or '',
                 'username': last_com.user_name,
                 'comment': last_com.comment,
@@ -120,7 +109,7 @@ def comment_posted(comment, **kwargs):
     pipe = client.pipeline()
     pipe.incr(count_key)
     pipe.hmset(last_keu, {
-        'submit_date': repr(time.mktime(comment.submit_date.timetuple())),
+        'submit_date': repr(to_timestamp(comment.submit_date)),
         'user_id': comment.user_id or '',
         'username': comment.user_name,
         'comment': comment.comment,
@@ -138,13 +127,12 @@ def comment_posted(comment, **kwargs):
 def connect_signals():
     from django.contrib.comments.signals import comment_was_posted
     from ella.core.signals import content_published, content_unpublished
-    from django.db.models.signals import pre_save, post_save
+    from django.db.models.signals import post_save
     content_published.connect(publishable_published)
     content_unpublished.connect(publishable_unpublished)
 
     comment_was_posted.connect(comment_posted)
 
-    pre_save.connect(comment_pre_save, sender=comments.get_model())
     post_save.connect(comment_post_save, sender=comments.get_model())
 
 if client:

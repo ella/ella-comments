@@ -1,10 +1,12 @@
 from datetime import datetime
 from django.test import TestCase
 
-from test_ella_comments.helpers import create_comment
-from test_ella.test_core import create_basic_categories, create_and_place_a_publishable
+from ella.utils.test_helpers import create_basic_categories, create_and_place_a_publishable
 
-from ella_comments.listing_handlers import client
+from test_ella_comments.helpers import create_comment
+
+from ella.core.cache.redis import client
+from ella.utils.timezone import utc_localize
 
 from nose import tools, SkipTest
 
@@ -20,7 +22,7 @@ class TestListingHandlers(TestCase):
 
     def test_aa(self):
         day = datetime.now().strftime('%Y%m%d')
-        create_comment(self.publishable, self.publishable.content_type, user_name='kvbik', submit_date=datetime(2010, 10, 10, 10, 10, 10))
+        create_comment(self.publishable, self.publishable.content_type, user_name='kvbik', submit_date=utc_localize(datetime(2010, 10, 10, 10, 10, 10)))
         ct_id = self.publishable.content_type_id
         tools.assert_equals(set([
             'slidingccount:WINDOWS',
@@ -62,6 +64,7 @@ class TestListingHandlers(TestCase):
 
         ]), set(client.keys('*')))
 
-        tools.assert_equals({'submit_date': '1286698210.0', 'user_id': '', 'username': 'kvbik', 'comment': '', 'url': ''}, client.hgetall('lastcom:pub:%d:1' % ct_id))
+        # timestamps are stored in utc time
+        tools.assert_equals({'submit_date': '1286705410.0', 'user_id': '', 'username': 'kvbik', 'comment': '', 'url': ''}, client.hgetall('lastcom:pub:%d:1' % ct_id))
         tools.assert_equals('1', client.get('comcount:pub:%d:1' % ct_id))
 
