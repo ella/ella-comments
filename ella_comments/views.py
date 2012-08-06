@@ -206,14 +206,6 @@ class PostComment(SaveComment):
                 RequestContext(request)
             )
 
-        comment = self.create_comment(request, form, opts)
-
-        return self.redirect_or_render_comment(request, context, templates, comment, next)
-
-    def create_comment(self, request, form, opts=None):
-        if not opts:
-            opts = {}
-
         # Otherwise create the comment
         comment = form.get_comment_object()
         comment.ip_address = request.META.get("REMOTE_ADDR", None)
@@ -242,7 +234,8 @@ class PostComment(SaveComment):
             comment=comment,
             request=request
         )
-        return comment
+
+        return self.redirect_or_render_comment(request, context, templates, comment, next)
 
 class ListComments(CommentView):
     normal_templates = dict(
