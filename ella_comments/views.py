@@ -293,6 +293,50 @@ class ListComments(CommentView):
             RequestContext(request)
         )
 
+def comment_detail(request, comment_id, reverse_ordering=None, results_per_page=10):
+    " Render a comment given an comment_id. "
+    # Get the comment and the associated content_object
+    comment = get_object_or_404(comments.get_model(), id=comment_id)
+    content_object = comment.content_object
+
+    # Figure out of the default ordering of comments for this object should be 'reversed'
+    reverse_ordering = _get_comment_order(content_object, reverse_ordering)
+
+    # Get the comment list for the object
+    clist = CachedCommentList(
+        ContentType.objects.get_for_model(content_object),
+        content_object.pk,
+        reverse=reverse_ordering
+    )
+
+    # Figure out how many comments per page are rendered for the associated content_object
+    results_per_page = _get_results_per_page(content_object, results_per_page)
+
+    # Find the page on which the comment is located
+    index = clist.get_list().index(comment) # This isn't very efficient, I know
+    page = ((index) / results_per_page) + 1
+
+    # Redirect the user to the content_object's detail page passing the `p` GET param to fetch the comments page on which this comment is found
+    return HttpResponseRedirect('%s?p=%d&comment_id=%s#%s' % (content_object.get_absolute_url(), page, comment_id, comment_id))
+
+def _get_comment_order(content_object, reverse_ordering):
+    """
+    Util method to get the results per page from either the url or the object
+    for the `comment_detail()` view. This is broken out into its own method
+    to simplify testing.
+    """
+    if reverse_ordering is None:
+        reverse_ordering = getattr(content_object, 'reverse_comment_ordering', True)
+    return reverse_ordering
+
+def _get_results_per_page(content_object, results_per_page):
+    """
+    Util method to get the results per page from either the url or the object
+    for the `comment_detail()` view. This is broken out into its own method
+    to simplify testing.
+    """
+    return getattr(content_object, 'comment_results_per_page', results_per_page)
+
 
 def post_comment(request, context, parent_id=None):
     return PostComment()(request, context, parent_id)
@@ -301,4 +345,3 @@ if getattr(settings, 'COMMENTS_AUTHORIZED_ONLY', False):
 
 list_comments = ListComments()
 update_comment = UpdateComment()
-

@@ -51,6 +51,7 @@ INSTALLED_APPS = (
     'ella.photos',
     'ella.articles',
     'ella_comments',
+    'test_ella_comments',
 )
 
 COMMENTS_APP = 'ella_comments'

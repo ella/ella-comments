@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
+import mock
+
+from django.conf import settings
+from django.contrib import comments
+from django.contrib.auth.models import User
+from django.core.cache import cache
+from django.http import Http404
+from django.template.defaultfilters import slugify
 from django.test import TestCase
+from django.utils.translation import ugettext as _
 
 from nose import tools
 
-from django.contrib import comments
-from django.utils.translation import ugettext as _
-from django.template.defaultfilters import slugify
-from django.contrib.auth.models import User
-from django.conf import settings
-
+from ella.core.cache.redis import client
 from ella.utils.test_helpers import create_basic_categories, create_and_place_a_publishable
 
 # register must be imported for custom urls
@@ -16,8 +20,11 @@ from ella_comments import register
 from ella_comments.models import CommentOptionsObject
 from ella_comments import views, models
 
-from test_ella_comments.helpers import create_comment
+from test_ella_comments.helpers import create_comment, RequestFactory
 from test_ella_comments import template_loader
+from test_ella_comments.models import ReverseCommentOrderingPublishable, ResultsPerPagePublishable, \
+    OVERRIDDEN_RESULTS_PER_PAGE
+
 
 class CommentViewTestCase(TestCase):
     def setUp(self):
@@ -46,8 +53,11 @@ class CommentViewTestCase(TestCase):
         return out
 
     def tearDown(self):
+        " Flush cache and redis for each unit test. "
         super(CommentViewTestCase, self).tearDown()
         template_loader.templates = {}
+        cache.clear()
+        client.flushdb()
 
 class TestCommentViewHelpers(TestCase):
     def test_group_threads(self):
@@ -258,3 +268,122 @@ class TestUpdateComment(CommentViewTestCase):
         form = views.update_comment.get_update_comment_form(self.publishable, comment, None, None)
         tools.assert_equals('some comment', form.initial['comment'])
 
+class TestCommentDetailView(CommentViewTestCase):
+    " Unit tests for `ella-comments.views.comment_detail()`. "
+
+    def setUp(self):
+        " Run a quick comment count check and factory a request object. "
+        super(TestCommentDetailView, self).setUp()
+        tools.assert_equals(comments.get_model().objects.count(), 0)
+        self.request = RequestFactory().request()
+        template_loader.templates['page/comment_list.html'] = ''
+
+    def test_404_raised_if_comment_matching_id_does_not_exist(self):
+        " Assert that the view raises a 404 if the comment matching the `comment_id` doesn't exist. "
+        INVALID_COMMENT_ID = 4
+        tools.assert_raises(Http404, views.comment_detail, self.request, INVALID_COMMENT_ID)
+
+    @mock.patch.object(views, '_get_comment_order')
+    def test_reverse_ordering_kwarg_is_passed_correctly(self, mock__get_comment_order):
+        " Assert that `views._get_comment_order()` is called with the expected args. "
+        comment_1 = create_comment(self.publishable, self.publishable.content_type)
+
+        # 1. Call the `comment_detail()` passing no kwargs
+        response = views.comment_detail(self.request, comment_1.id)
+        tools.assert_equals(response.status_code, 302)
+
+        # Assert that `_get_comment_order()` was called with the publishable and the default `reverse_ordering` value (which is False)
+        mock__get_comment_order.assert_called_once_with(self.publishable, None)
+        mock__get_comment_order.reset_mock()
+
+
+        # 2. Call the `comment_detail()` passing passing `reverse_ordering` kwarg
+        response = views.comment_detail(self.request, comment_1.id, reverse_ordering=True)
+        tools.assert_equals(response.status_code, 302)
+
+        # Assert that `_get_comment_order()` was called with the publishable and the passed `reverse_ordering` kwarg (which is True)
+        mock__get_comment_order.assert_called_once_with(self.publishable, True)
+
+    def test__get_comment_order_util_method(self):
+        " Assert that `views._get_comment_order()` returns the expected value.  "
+        # 1. Assert True is returned when passing `reverse_ordering` = True
+        tools.assert_true(views._get_comment_order(self.publishable, reverse_ordering=True))
+
+        # 2. Assert False is returned when passing `reverse_ordering` = False
+        tools.assert_false(views._get_comment_order(self.publishable, reverse_ordering=False))
+
+        # 3. Assert True is returned when passing `reverse_ordering` = None
+        tools.assert_true(views._get_comment_order(self.publishable, reverse_ordering=None))
+
+        # 4. Assert False is returned when passing a `content_object` who has the `reverse_comment_ordering` property specified (to False)
+        obj = ReverseCommentOrderingPublishable()
+        tools.assert_false(obj.reverse_comment_ordering)
+        tools.assert_false(views._get_comment_order(obj, reverse_ordering=None))
+
+    @mock.patch.object(views, '_get_results_per_page')
+    def test_results_per_page_kwarg_is_passed_correctly(self, mock__get_results_per_page):
+        " Assert that `views._get_results_per_page()` is called with the expected args from `views.comment_detail()`. "
+        comment_1 = create_comment(self.publishable, self.publishable.content_type)
+
+        # 1. Call the `comment_detail()` passing no kwargs
+        response = views.comment_detail(self.request, comment_1.id)
+        tools.assert_equals(response.status_code, 302)
+
+        # Assert that `_get_results_per_page()` was called with the publishable and the default `results_per_page` value (which is 10)
+        mock__get_results_per_page.assert_called_once_with(self.publishable, 10)
+        mock__get_results_per_page.reset_mock()
+
+
+        # 2. Call the `comment_detail()` passing passing `results_per_page` kwarg
+        response = views.comment_detail(self.request, comment_1.id, results_per_page=25)
+        tools.assert_equals(response.status_code, 302)
+
+        # Assert that `_get_results_per_page()` was called with the publishable and the passed `results_per_page` kwarg which is 25
+        mock__get_results_per_page.assert_called_once_with(self.publishable, 25)
+
+    def test__get_results_per_page_util_method(self):
+        " Assert that `views._get_results_per_page()` returns the expected value.  "
+        # 1. Assert 10 is returned when passing the 10 as the `results_per_page` arg
+        RESULTS_PER_PAGE = 10
+        tools.assert_equals(views._get_results_per_page(self.publishable, results_per_page=RESULTS_PER_PAGE), RESULTS_PER_PAGE)
+
+        # 2. Assert that an object can override the return value if it has specified the `comment_results_per_page` property
+        obj = ResultsPerPagePublishable()
+        tools.assert_equals(obj.comment_results_per_page, OVERRIDDEN_RESULTS_PER_PAGE)
+        tools.assert_true(OVERRIDDEN_RESULTS_PER_PAGE != RESULTS_PER_PAGE)
+        tools.assert_equals(views._get_results_per_page(obj, results_per_page=RESULTS_PER_PAGE), OVERRIDDEN_RESULTS_PER_PAGE)
+
+    def test_correct_page_in_redirect(self):
+        " Assert that `views.comment_detail()` returns an HttpResponseRedirect to the expected location. "
+        # Create a handful of comments
+        for i in range(0, 22):
+            create_comment(self.publishable, self.publishable.content_type)
+        tools.assert_false(hasattr(self.publishable, 'results_per_page'))
+        tools.assert_false(hasattr(self.publishable, 'reverse_comment_ordering'))
+
+        # Call the `comment_detail()` view to get the absolute url for comment.id == 4 passing no kwargs
+        #   `results_per_page` should be 10
+        #   `reverse_ordering` should be True
+        comment_4 = comments.get_model().objects.get(pk=4)
+        response = views.comment_detail(self.request, comment_4.id)
+        tools.assert_equals(response.status_code, 302)
+        redirect = response._headers['location'][1]
+        tools.assert_equals(redirect, '%s?p=%d&comment_id=%s#%s' % (comment_4.content_object.get_absolute_url(), 2, comment_4.id, comment_4.id))
+
+        # Call the `comment_detail()` view to get the absolute url for comment.id == 4 passing `reverse_ordering` = False
+        #   `results_per_page` should be 10
+        #   `reverse_ordering` should be False
+        comment_4 = comments.get_model().objects.get(pk=4)
+        response = views.comment_detail(self.request, comment_4.id, reverse_ordering=False)
+        tools.assert_equals(response.status_code, 302)
+        redirect = response._headers['location'][1]
+        tools.assert_equals(redirect, '%s?p=%d&comment_id=%s#%s' % (comment_4.content_object.get_absolute_url(), 1, comment_4.id, comment_4.id))
+
+        # Call the `comment_detail()` view to get the absolute url for comment.id == 4 passing `results_per_page` = 1
+        #   `results_per_page` should be 1
+        #   `reverse_ordering` should be True
+        comment_4 = comments.get_model().objects.get(pk=4)
+        response = views.comment_detail(self.request, comment_4.id, results_per_page=1)
+        tools.assert_equals(response.status_code, 302)
+        redirect = response._headers['location'][1]
+        tools.assert_equals(redirect, '%s?p=%d&comment_id=%s#%s' % (comment_4.content_object.get_absolute_url(), 19, comment_4.id, comment_4.id))
