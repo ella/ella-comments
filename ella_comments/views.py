@@ -293,11 +293,25 @@ class ListComments(CommentView):
             RequestContext(request)
         )
 
-def comment_detail(request, comment_id, reverse_ordering=None, results_per_page=10):
+def comment_detail(request, context, comment_id):
     " Render a comment given an comment_id. "
     # Get the comment and the associated content_object
     comment = get_object_or_404(comments.get_model(), id=comment_id)
-    content_object = comment.content_object
+    content_object = context['object']
+    content_type = context['content_type']
+
+    reverse_ordering = None
+    if 'reverse_ordering' in request.GET:
+        reverse_ordering = bool(request.GET['reverse_ordering'])
+
+    try:
+        results_per_page = int(request.GET.get('results_per_page', 10))
+    except ValueError:
+        results_per_page = 10
+
+    # this comment belongs to different object
+    if comment.content_type_id != content_type.id or str(content_object.pk) != str(comment.object_pk):
+        raise Http404()
 
     # Figure out of the default ordering of comments for this object should be 'reversed'
     reverse_ordering = _get_comment_order(content_object, reverse_ordering)
