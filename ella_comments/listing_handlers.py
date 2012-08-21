@@ -59,7 +59,7 @@ def comment_post_save(instance, **kwargs):
         last_keu = LASTCOM_KEY % (instance.content_type_id, instance.object_pk)
         try:
             # update the last comment info
-            last_com = comments.get_model()._default_manager.filter(content_type_id=instance.content_type_id, object_pk=instance.object_pk, is_public=True, is_removed=False).latest('submit_date')
+            last_com = comments.get_model()._default_manager.filter(content_type=instance.content_type_id, object_pk=instance.object_pk, is_public=True, is_removed=False).latest('submit_date')
             client.hmset(last_keu, {
                 'submit_date': repr(to_timestamp(last_com.submit_date)),
                 'user_id': last_com.user_id or '',
