@@ -6,7 +6,7 @@ from ella.utils.test_helpers import create_basic_categories, create_and_place_a_
 from test_ella_comments.helpers import create_comment
 
 from ella.core.cache.redis import client
-from ella.utils.timezone import utc_localize
+from ella.utils.timezone import utc_localize, use_tz
 
 from nose import tools, SkipTest
 
@@ -64,7 +64,11 @@ class TestListingHandlers(TestCase):
 
         ]), set(client.keys('*')))
 
-        # timestamps are stored in utc time
-        tools.assert_equals({'submit_date': '1286705410.0', 'user_id': '', 'username': 'kvbik', 'comment': '', 'url': ''}, client.hgetall('lastcom:pub:%d:1' % ct_id))
+        if use_tz:
+            # timestamps are stored in utc time
+            tstamp = '1286705410.0'
+        else:
+            tstamp = '1286698210.0'
+        tools.assert_equals({'submit_date': tstamp, 'user_id': '', 'username': 'kvbik', 'comment': '', 'url': ''}, client.hgetall('lastcom:pub:%d:1' % ct_id))
         tools.assert_equals('1', client.get('comcount:pub:%d:1' % ct_id))
 
