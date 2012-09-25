@@ -13,6 +13,7 @@ from django.utils.translation import ugettext as _
 from nose import tools
 
 from ella.core.cache.redis import client
+from ella.core.cache import utils
 from ella.utils.test_helpers import create_basic_categories, create_and_place_a_publishable
 
 # register must be imported for custom urls
@@ -31,6 +32,7 @@ class CommentViewTestCase(TestCase):
         super(CommentViewTestCase, self).setUp()
         create_basic_categories(self)
         create_and_place_a_publishable(self)
+        utils.PUBLISHABLE_CT = None
 
     def get_url(self, *bits):
         url = [self.publishable.get_absolute_url(), slugify(_('comments')), '/']
