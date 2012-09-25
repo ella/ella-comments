@@ -297,7 +297,7 @@ def comment_detail(request, context, comment_id):
     " Render a comment given an comment_id. "
     # Get the comment and the associated content_object
     comment = get_object_or_404(comments.get_model(), id=comment_id)
-    content_object = context['object'].target
+    content_object = context['object']
     content_type = context['content_type']
 
     reverse_ordering = None
