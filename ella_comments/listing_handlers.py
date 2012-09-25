@@ -43,23 +43,28 @@ def comment_post_save(instance, **kwargs):
         is_public = instance.is_public and not instance.is_removed
         was_public = instance.__pub_info['is_public'] and not instance.__pub_info['is_removed']
 
-        # comment being moderated
-        if was_public and not is_public:
-            count_key = COMCOUNT_KEY % (instance.content_type_id, instance.object_pk)
-            client.decr(count_key)
+        # Base queryset for public comments
+        public_comments = comments.get_model()._default_manager.filter(
+            content_type=instance.content_type_id,
+            object_pk=instance.object_pk,
+            is_public=True,
+            is_removed=False
+        )
 
-        # commet back up
-        elif not was_public and is_public:
-            count_key = COMCOUNT_KEY % (instance.content_type_id, instance.object_pk)
-            client.incr(count_key)
+        # If the comment's "publicity" was modified in any way, update the count key
+        if (was_public and not is_public) or (not was_public and is_public):
+            client.set(
+                COMCOUNT_KEY % (instance.content_type_id, instance.object_pk),
+                public_comments.count()
+            )
+        # If no change to the "publicity" of the comment was made, return
         else:
-            # no change
             return
 
+        # Update the last comment info
         last_keu = LASTCOM_KEY % (instance.content_type_id, instance.object_pk)
         try:
-            # update the last comment info
-            last_com = comments.get_model()._default_manager.filter(content_type=instance.content_type_id, object_pk=instance.object_pk, is_public=True, is_removed=False).latest('submit_date')
+            last_com = public_comments.latest('submit_date')
             client.hmset(last_keu, {
                 'submit_date': repr(to_timestamp(last_com.submit_date)),
                 'user_id': last_com.user_id or '',
