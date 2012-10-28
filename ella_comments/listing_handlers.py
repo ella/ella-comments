@@ -2,7 +2,7 @@ import logging
 
 from django.contrib import comments
 
-from ella.core.cache.redis import RedisListingHandler, client, SlidingListingHandler
+from ella.core.cache.redis import RedisListingHandler, client, SlidingListingHandler, TimeBasedListingHandler
 from ella.core.models import Publishable, Listing
 from ella.utils.timezone import to_timestamp
 
@@ -16,26 +16,13 @@ LAST_COMMENTED_LH = 'last_commented'
 COMCOUNT_KEY = 'comcount:pub:%s:%s'
 LASTCOM_KEY = 'lastcom:pub:%s:%s'
 
-class CommentListingHandler(object):
-    def _get_score_limits(self):
-        max_score = None
-        min_score = None
-
-        if self.date_range:
-            # TODO: maybe zinterstore with RedisListingHandler's zset using MIN aggregation
-            raise NotSupported()
-        return min_score, max_score
-
-    def _get_listing(self, publishable, score):
-        return Listing(publishable=publishable, publish_from=publishable.publish_from)
-
-class RecentMostCommentedListingHandler(CommentListingHandler, SlidingListingHandler):
+class RecentMostCommentedListingHandler(SlidingListingHandler):
     PREFIX = 'slidingccount'
 
-class MostCommentedListingHandler(CommentListingHandler, RedisListingHandler):
+class MostCommentedListingHandler(RedisListingHandler):
     PREFIX = 'comcount'
 
-class LastCommentedListingHandler(CommentListingHandler, RedisListingHandler):
+class LastCommentedListingHandler(TimeBasedListingHandler):
     PREFIX = 'lastcom'
 
 def comment_post_save(instance, **kwargs):
