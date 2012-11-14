@@ -12,6 +12,7 @@ from django.db import transaction
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.utils import importlib
 
 from ella.core.views import get_templates_from_publishable
 from ella.core.custom_urls import resolver
@@ -57,6 +58,14 @@ class UpdateComment(SaveComment):
             detail_template = 'comment_detail_async.html',
         )
 
+    def get_object_from_class_path(self, path):
+        "Return the object specified by the class path"
+        parts = path.split('.')
+        path = '.'.join(parts[:-1])
+        obj = parts[-1]
+        module = importlib.import_module(path)
+        return getattr(module, obj)
+
     def user_can_access_comment(self, user):
         """
         Method to check whether or not the current user is allowed to edit
@@ -94,6 +103,8 @@ class UpdateComment(SaveComment):
 
             # Assert that the user attempting to edit the comment has the appropriate privileges
             user_passes_test = getattr(settings, 'COMMENT_MOD_EDIT_COMMENT_USER_TEST', self.user_can_access_comment)
+            if not callable(user_passes_test):
+                user_passes_test = self.get_object_from_class_path(user_passes_test)
             if not user_passes_test(request.user):
                 raise Http404("you cannot edit another user's comment")
 
