@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+import time
 import mock
+
 from urlparse import urlparse
 
 from django.conf import settings
@@ -256,6 +258,15 @@ class TestCommentViews(CommentViewTestCase):
         tools.assert_equals([a, ab, ac, d, de, def_], list(response.context['comment_list']))
 
 class TestUpdateComment(CommentViewTestCase):
+    def setUp(self):
+        super(TestUpdateComment, self).setUp()
+        template_loader.templates['404.html'] = ''
+        template_loader.templates['page/comment_update.html'] = ''
+
+        # Create a few users for the tests
+        self.user_foo = User.objects.create_user(username='foo', password='test')
+        self.user_bar = User.objects.create_user(username='bar', password='test')
+
     def test_get_comment_for_user(self):
         boy = User.objects.create(username='boy')
         girl = User.objects.create(username='girl')
@@ -269,6 +280,123 @@ class TestUpdateComment(CommentViewTestCase):
         comment = create_comment(self.publishable, self.publishable.content_type, comment='some comment')
         form = views.update_comment.get_update_comment_form(self.publishable, comment, None, None)
         tools.assert_equals('some comment', form.initial['comment'])
+
+    def test_non_moderator_allowed_edits(self):
+        """
+        Assert that 404 is raised if the `COMMENTS_ALLOW_MODERATOR_UPDATE` setting is
+        False or does not exist and the user editing the comment is NOT the comment owner.
+        """
+        # Assert that moderator update flags are set as expected
+        tools.assert_true(hasattr(settings, 'COMMENTS_ALLOW_UPDATE'))
+
+        # Patch the COMMENTS_ALLOW_MODERATOR_UPDATE for the test
+        settings.COMMENTS_ALLOW_MODERATOR_UPDATE = False
+
+        # Create a new comment with user_foo
+        comment = create_comment(self.publishable, self.publishable.content_type, comment='first', user=self.user_foo)
+
+        # Try to edit this comment with user_bar and assert it raises 404 b/c COMMENTS_ALLOW_MODERATOR_UPDATE is set to False
+        self.client.login(username='bar', password='test')
+        response = self.client.get(self.get_url('update', comment.id))
+        tools.assert_equals(404, response.status_code)
+
+        # Reset the COMMENTS_ALLOW_MODERATOR_UPDATE value
+        settings.COMMENTS_ALLOW_MODERATOR_UPDATE = True
+
+    def test_user_doesnt_pass_test(self):
+        """
+        Assert that 404 is raised if the `COMMENTS_ALLOW_MODERATOR_UPDATE` setting is
+        True but the user editing the comment is NOT the comment owner and does NOT pass
+        the `user_can_access_comment` method.
+        """
+        # Assert that moderator update flags are set as expected
+        tools.assert_true(hasattr(settings, 'COMMENTS_ALLOW_UPDATE'))
+        tools.assert_true(hasattr(settings, 'COMMENTS_ALLOW_MODERATOR_UPDATE'))
+
+        # Create a new comment with user_foo
+        comment = create_comment(self.publishable, self.publishable.content_type, comment='first', user=self.user_foo)
+
+        # Try to edit this comment with user_bar and assert it raises 404 b/c COMMENTS_ALLOW_MODERATOR_UPDATE is set to False
+        self.client.login(username='bar', password='test')
+        response = self.client.get(self.get_url('update', comment.id))
+        tools.assert_equals(404, response.status_code)
+
+    def test_user_passes_test(self):
+        """
+        Assert that the user CAN edit the comment if they are not the owner but
+        they do have the appropriate permissions (and if the apporpriate settings are configured).
+        """
+        # Assert that moderator update flags are set as expected
+        tools.assert_true(hasattr(settings, 'COMMENTS_ALLOW_UPDATE'))
+        tools.assert_true(hasattr(settings, 'COMMENTS_ALLOW_MODERATOR_UPDATE'))
+
+        # Create a new comment with user_foo
+        comment = create_comment(self.publishable, self.publishable.content_type, comment='first', user=self.user_foo)
+
+        # Create a new staff user and assert that they pass the default test
+        user_staff = User.objects.create_superuser(username='staff', email='bar@bar.com', password='test')
+        tools.assert_true(views.update_comment.user_can_access_comment(user_staff))
+
+        # Try to edit this comment with user_bar (whos IS staff)
+        self.client.login(username='staff', password='test')
+        response = self.client.get(self.get_url('update', comment.id))
+
+        # Assert that the response is 200 and that the appropriate tpl is being called
+        tools.assert_equals(200, response.status_code)
+        tools.assert_equals('page/comment_update.html', response.template.name)
+
+    def test_comment_update_with_post(self):
+        " Assert that a POST request with valid data successfully updates the comment. "
+        # Create a new comment with user_foo
+        comment = create_comment(self.publishable, self.publishable.content_type, comment='first', user=self.user_foo)
+
+        # Create a new staff user and assert that they pass the default test
+        user_staff = User.objects.create_superuser(username='staff', email='bar@bar.com', password='test')
+        tools.assert_true(views.update_comment.user_can_access_comment(user_staff))
+
+        # Instantiate the edit form with
+        form = comments.get_form()(target_object=self.publishable)
+        form_data = self.get_form_data(form)
+        UPDATED_COMMENT_TEXT = 'update me!'
+        form_data.update({'comment': UPDATED_COMMENT_TEXT})
+
+        # Try to edit this comment with user_bar (whos IS staff)
+        self.client.login(username='staff', password='test')
+        self.client.post(self.get_url('update', comment.id), form_data)
+
+        # Refetch the comment from the orm and assert that it has indeed been updated
+        comment = comments.get_model().objects.get(id=comment.id)
+        tools.assert_equals(UPDATED_COMMENT_TEXT, comment.comment)
+        tools.assert_equals(self.user_foo, comment.user)
+
+    @mock.patch.object(views, 'comment_updated')
+    def test_comment_updated_signal(self, mock_signal):
+        " Assert that the `comment_updated` signal is sent as expected after a comment is edited. "
+        # Create a new comment with user_foo
+        comment = create_comment(self.publishable, self.publishable.content_type, comment='first', user=self.user_foo)
+
+        # Create a new staff user and assert that they pass the default test
+        user_staff = User.objects.create_superuser(username='staff', email='bar@bar.com', password='test')
+        tools.assert_true(views.update_comment.user_can_access_comment(user_staff))
+
+        # Instantiate the edit form with
+        form = comments.get_form()(target_object=self.publishable)
+        form_data = self.get_form_data(form)
+        UPDATED_COMMENT_TEXT = 'update me!'
+        form_data.update({'comment': UPDATED_COMMENT_TEXT})
+
+        # Try to edit this comment with user_bar (whos IS staff)
+        self.client.login(username='staff', password='test')
+        self.client.post(self.get_url('update', comment.id), form_data)
+
+        # Assert that the `comment_updated` signal was called
+        mock_signal.send.assert_called()
+        # mock_signal.send.assert_called_once_with(
+        #     sender=comment.__class__,
+        #     comment=comment,
+        #     updating_user=user_staff,
+        #     # date_updated=mock_now
+        # )
 
 class TestCommentDetailView(CommentViewTestCase):
     " Unit tests for `ella-comments.views.comment_detail()`. "

@@ -13,11 +13,12 @@ from django.core.paginator import Paginator
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 
-
 from ella.core.views import get_templates_from_publishable
 from ella.core.custom_urls import resolver
+from ella.utils.timezone import now
 
 from ella_comments.models import CommentOptionsObject, CachedCommentList
+from ella_comments.signals import comment_updated
 
 
 class CommentView(object):
@@ -56,8 +57,19 @@ class UpdateComment(SaveComment):
             detail_template = 'comment_detail_async.html',
         )
 
+    def user_can_access_comment(self, user):
+        """
+        Method to check whether or not the current user is allowed to edit
+        another user's comment. This may be overidden (to point to another callable)
+        in settings.
+        """
+        return user.is_staff
+
     def get_comment_for_user(self, obj, user, comment_id):
         return comments.get_model().objects.for_model(obj).filter(user=user).get(pk=comment_id)
+
+    def get_comment(self, obj, comment_id):
+        return comments.get_model().objects.for_model(obj).get(pk=comment_id)
 
     def get_update_comment_form(self, obj, comment, data, user):
         initial = {'comment': comment.comment}
@@ -71,10 +83,25 @@ class UpdateComment(SaveComment):
             raise Http404("update not allowed")
         if not request.user.is_authenticated():
             raise Http404("you are not logged in")
+
+        # Try to get the comment owned by the current user
         try:
             comment = self.get_comment_for_user(context['object'], request.user, comment_id)
         except comments.get_model().DoesNotExist:
-            raise Http404("you don't have such comment")
+            # Assert that the Site allows other users (besides the comment owner) to edit comment
+            if not getattr(settings, 'COMMENTS_ALLOW_MODERATOR_UPDATE', False):
+                raise Http404("you don't have such comment")
+
+            # Assert that the user attempting to edit the comment has the appropriate privileges
+            user_passes_test = getattr(settings, 'COMMENT_MOD_EDIT_COMMENT_USER_TEST', self.user_can_access_comment)
+            if not user_passes_test(request.user):
+                raise Http404("you cannot edit another user's comment")
+
+            # Try to get the comment for the object
+            try:
+                comment = self.get_comment(context['object'], comment_id)
+            except comments.get_model().DoesNotExist:
+                raise Http404("comment does not exist")
 
         templates = self.normal_templates
         if request.is_ajax():
@@ -112,6 +139,14 @@ class UpdateComment(SaveComment):
                     "comment_will_be_posted receiver %r killed the comment" % receiver.__name__)
 
         comment.save()
+
+        # Signal that the comment was updated
+        comment_updated.send(
+            sender=comment.__class__,
+            comment=comment,
+            updating_user=request.user,
+            date_updated=now()
+        )
 
         return self.redirect_or_render_comment(request, context, templates, comment, next)
 
