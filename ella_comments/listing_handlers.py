@@ -123,7 +123,7 @@ def connect_signals():
     content_published.connect(publishable_published)
     content_unpublished.connect(publishable_unpublished)
 
-    comment_was_posted.connect(comment_posted)
+    comment_was_posted.connect(comment_posted, sender=comments.get_model())
 
     post_save.connect(comment_post_save, sender=comments.get_model())
 

@@ -264,8 +264,8 @@ class TestUpdateComment(CommentViewTestCase):
         template_loader.templates['page/comment_update.html'] = ''
 
         # Create a few users for the tests
-        self.user_foo = User.objects.create_user(username='foo', password='test')
-        self.user_bar = User.objects.create_user(username='bar', password='test')
+        self.user_foo = User.objects.create_user('foo', 'foo@example.com', 'test')
+        self.user_bar = User.objects.create_user('bar', 'bar@example.com', 'test')
 
     def test_get_comment_for_user(self):
         boy = User.objects.create(username='boy')

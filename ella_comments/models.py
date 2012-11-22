@@ -22,8 +22,6 @@ DEFAULT_COMMENT_OPTIONS = {
     'check_profanities': True
 }
 
-COMMENT_LIST_KEY = 'comments:list:%s:%s:%d'
-
 class CachedCommentList(object):
     CACHE_TIMEOUT = 30
     def __init__(self, ctype, object_pk, reverse=None, group_threads=None, flat=None, ids=()):
