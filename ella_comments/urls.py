@@ -1,6 +1,9 @@
 from django.template.defaultfilters import slugify
 from django.utils.translation import ugettext as _
-from django.conf.urls.defaults import patterns, url
+try:
+    from django.conf.urls import patterns, url
+except ImportError:
+    from django.conf.urls.defaults import patterns, url
 
 from ella.core.custom_urls import resolver
 from ella_comments.views import list_comments, post_comment, update_comment, comment_detail
